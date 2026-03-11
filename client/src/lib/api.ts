@@ -1,6 +1,6 @@
-import type { ProductionReport, InsertProductionReport } from "@shared/schema";
+import type { GetProductionReport, CreateProductionReport } from "@shared/schema";
 
-const BASE_URL = "/proxy";
+const BASE_URL = "https://localhost:8443";
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -20,25 +20,25 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 export const api = {
-  getProductionReports: (): Promise<ProductionReport[]> =>
-    fetch(`${BASE_URL}/api/ProductionReports/ProductionReports`).then(r => handleResponse<ProductionReport[]>(r)),
+  getProductionReports: (count: number): Promise<GetProductionReport[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/ProductionReports?count=${count}`).then(r => handleResponse<GetProductionReport[]>(r)),
 
-  getProductionReport: (id: string): Promise<ProductionReport> =>
-    fetch(`${BASE_URL}/api/ProductionReports/ProductionReports/${id}`).then(r => handleResponse<ProductionReport>(r)),
+  getProductionReport: (id: string): Promise<GetProductionReport> =>
+    fetch(`${BASE_URL}/api/ProductionReports/ProductionReports/${id}`).then(r => handleResponse<GetProductionReport>(r)),
 
-  createProductionReport: (report: InsertProductionReport): Promise<ProductionReport> =>
+  createProductionReport: (report: CreateProductionReport): Promise<GetProductionReport> =>
     fetch(`${BASE_URL}/api/ProductionReports/ProductionReports`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(report),
-    }).then(r => handleResponse<ProductionReport>(r)),
+    }).then(r => handleResponse<GetProductionReport>(r)),
 
-  updateProductionReport: (id: string, report: InsertProductionReport): Promise<ProductionReport> =>
+  updateProductionReport: (id: string, report: CreateProductionReport): Promise<GetProductionReport> =>
     fetch(`${BASE_URL}/api/ProductionReports/ProductionReports/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(report),
-    }).then(r => handleResponse<ProductionReport>(r)),
+    }).then(r => handleResponse<GetProductionReport>(r)),
 
   deleteProductionReport: (id: string): Promise<void> =>
     fetch(`${BASE_URL}/api/ProductionReports/ProductionReports/${id}`, {

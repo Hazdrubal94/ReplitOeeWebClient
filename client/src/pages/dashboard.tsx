@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText, CheckCircle2, XCircle, Users, Link } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { ProductionReport } from "@shared/schema";
+import type { GetProductionReport } from "@shared/schema";
 import { format } from "date-fns";
 
 function StatCard({
@@ -55,16 +55,16 @@ function StatCard({
 }
 
 export default function Dashboard() {
-  const { data: reports, isLoading, isError } = useQuery<ProductionReport[]>({
+  const { data: reports, isLoading, isError } = useQuery<GetProductionReport[]>({
     queryKey: ["/api/proxy/reports"],
-    queryFn: () => api.getProductionReports(),
+    queryFn: () => api.getProductionReports(50),
     retry: false,
   });
 
   const totalReports = reports?.length ?? 0;
-  const openReports = reports?.filter((r) => r.OpenReport).length ?? 0;
-  const closedReports = reports?.filter((r) => !r.OpenReport).length ?? 0;
-  const uniqueUsers = new Set(reports?.map((r) => r.UserId)).size;
+  const openReports = reports?.filter((r) => r.openReport).length ?? 0;
+  const closedReports = reports?.filter((r) => !r.openReport).length ?? 0;
+  const uniqueUsers = new Set(reports?.map((r) => r.userId)).size;
 
   const recentReports = reports?.slice(0, 5) ?? [];
 
@@ -116,19 +116,19 @@ export default function Dashboard() {
             <div className="divide-y divide-border">
               {recentReports.map((report) => (
                 <div
-                  key={report.IdReport}
-                  data-testid={`row-report-${report.IdReport}`}
+                  key={report.idReport}
+                  data-testid={`row-report-${report.idReport}`}
                   className="flex items-center justify-between px-6 py-3 gap-4"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{report.IdReport}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{report.idReport}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {report.UserName} &middot; {report.Area} &middot;{" "}
-                      {report.Date ? format(new Date(report.Date), "MMM d, yyyy") : "—"}
+                      {report.userName} &middot; {report.area} &middot;{" "}
+                      {report.date ? format(new Date(report.date), "MMM d, yyyy") : "—"}
                     </p>
                   </div>
-                  <Badge variant={report.OpenReport ? "default" : "secondary"} data-testid={`status-report-${report.IdReport}`}>
-                    {report.OpenReport ? "Open" : "Closed"}
+                  <Badge variant={report.openReport ? "default" : "secondary"} data-testid={`status-report-${report.idReport}`}>
+                    {report.openReport ? "Open" : "Closed"}
                   </Badge>
                 </div>
               ))}

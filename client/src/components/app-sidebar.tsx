@@ -11,11 +11,11 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { FileText, LayoutDashboard, Settings, Activity } from "lucide-react";
+import { TableProperties, LayoutDashboard, Activity } from "lucide-react";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Production Reports", url: "/reports", icon: FileText },
+  { title: "Production Reports", url: "/reports", icon: TableProperties }
 ];
 
 export function AppSidebar() {
@@ -30,7 +30,7 @@ export function AppSidebar() {
           </div>
           <div>
             <p className="text-sm font-semibold text-sidebar-foreground leading-tight">OeeWebApp</p>
-            <p className="text-xs text-sidebar-foreground/50 leading-tight">Production Monitor</p>
+            <p className="text-xs text-sidebar-foreground/50 leading-tight">Production Reporting 3.0</p>
           </div>
         </div>
       </SidebarHeader>

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { api } from "@/lib/api";
-import type { ProductionReport, InsertProductionReport } from "@shared/schema";
+import type { GetProductionReport, CreateProductionReport } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,16 +14,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -38,7 +28,6 @@ import {
   Plus,
   Search,
   Pencil,
-  Trash2,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
@@ -50,7 +39,7 @@ import { format } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 
-type SortKey = keyof ProductionReport;
+type SortKey = keyof GetProductionReport;
 type SortDir = "asc" | "desc";
 
 function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) {
@@ -71,20 +60,20 @@ function formatDateCell(val: string) {
 export default function ProductionReports() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("Date");
+  const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [createOpen, setCreateOpen] = useState(false);
-  const [editReport, setEditReport] = useState<ProductionReport | null>(null);
-  const [deleteReport, setDeleteReport] = useState<ProductionReport | null>(null);
+  const [editReport, setEditReport] = useState<GetProductionReport | null>(null);
+  const [deleteReport, setDeleteReport] = useState<GetProductionReport | null>(null);
 
-  const { data: reports = [], isLoading, isError, refetch, isFetching } = useQuery<ProductionReport[]>({
+  const { data: reports = [], isLoading, isError, refetch, isFetching } = useQuery<GetProductionReport[]>({
     queryKey: ["/api/proxy/reports"],
-    queryFn: () => api.getProductionReports(),
+    queryFn: () => api.getProductionReports(50),
     retry: false,
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: InsertProductionReport) => api.createProductionReport(data),
+    mutationFn: (data: CreateProductionReport) => api.createProductionReport(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/proxy/reports"] });
       setCreateOpen(false);
@@ -96,7 +85,7 @@ export default function ProductionReports() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: InsertProductionReport }) =>
+    mutationFn: ({ id, data }: { id: string; data: CreateProductionReport }) =>
       api.updateProductionReport(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/proxy/reports"] });
@@ -133,11 +122,10 @@ export default function ProductionReports() {
     const q = search.toLowerCase();
     return reports.filter((r) =>
       !q ||
-      r.IdReport?.toLowerCase().includes(q) ||
-      r.UserName?.toLowerCase().includes(q) ||
-      r.UserId?.toLowerCase().includes(q) ||
-      r.Area?.toLowerCase().includes(q) ||
-      r.AppVer?.toLowerCase().includes(q)
+      r.idReport?.toLowerCase().includes(q) ||
+      r.userName?.toLowerCase().includes(q) ||
+      r.userId?.toLowerCase().includes(q) ||
+      r.area?.toLowerCase().includes(q)
     );
   }, [reports, search]);
 
@@ -250,68 +238,47 @@ export default function ProductionReports() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/40">
-                    <SortableHeader col="IdReport" label="Report ID" />
-                    <SortableHeader col="Date" label="Date" />
-                    <SortableHeader col="UserName" label="User" />
-                    <SortableHeader col="Area" label="Area" />
-                    <SortableHeader col="OpenReport" label="Status" />
-                    <SortableHeader col="AppVer" label="App Ver" />
-                    <SortableHeader col="App" label="App" />
-                    <SortableHeader col="ShiftPatternVersion" label="Shift Ver" />
-                    <TableHead className="text-right">Actions</TableHead>
+                    <SortableHeader col="idReport" label="Report ID" />
+                    <SortableHeader col="date" label="Date" />
+                    <SortableHeader col="area" label="Area" />
+                    <SortableHeader col="shift" label="Shift" />
+                    <SortableHeader col="userId" label="UserId" />
+                    <SortableHeader col="userName" label="User Name" />
+                    <SortableHeader col="openReport" label="Is Opened" />
+                    <TableHead className="text-right">Edit</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sorted.map((report) => (
                     <TableRow
-                      key={report.IdReport}
-                      className="group"
-                      data-testid={`row-report-${report.IdReport}`}
-                    >
-                      <TableCell className="font-mono text-xs font-medium text-foreground">
-                        {report.IdReport}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        {formatDateCell(report.Date)}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="text-sm font-medium text-foreground leading-tight">{report.UserName}</p>
-                          <p className="text-xs text-muted-foreground">{report.UserId}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-foreground">{report.Area}</TableCell>
+                      key={report.idReport}
+                      className="productionReportSchema"
+                      data-testid={`row-report-${report.idReport}`}
+                      >
+                      <TableCell>{report.idReport}</TableCell>
+                      <TableCell>{report.date}</TableCell>
+                      <TableCell>{report.area}</TableCell>
+                      <TableCell>{report.shift}</TableCell>
+                      <TableCell>{report.userId}</TableCell>
+                      <TableCell>{report.userName}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={report.OpenReport ? "default" : "secondary"}
-                          data-testid={`status-report-${report.IdReport}`}
+                            variant={report.openReport ? "default" : "secondary"}
+                            data-testid={`status-report-${report.idReport}`}
                         >
-                          {report.OpenReport ? "Open" : "Closed"}
+                            {report.openReport ? "Open" : "Closed"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs font-mono text-muted-foreground">{report.AppVer}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{report.App}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{report.ShiftPatternVersion}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             size="icon"
                             variant="ghost"
                             onClick={() => setEditReport(report)}
-                            data-testid={`button-edit-${report.IdReport}`}
+                            data-testid={`button-edit-${report.idReport}`}
                             title="Edit"
                           >
                             <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => setDeleteReport(report)}
-                            data-testid={`button-delete-${report.IdReport}`}
-                            title="Delete"
-                            className="text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -339,48 +306,6 @@ export default function ProductionReports() {
           />
         </DialogContent>
       </Dialog>
-
-      <Dialog open={!!editReport} onOpenChange={(open) => !open && setEditReport(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Production Report</DialogTitle>
-            <DialogDescription>
-              Modify the fields and save your changes.
-            </DialogDescription>
-          </DialogHeader>
-          {editReport && (
-            <ProductionReportForm
-              defaultValues={editReport}
-              onSubmit={(data) => updateMutation.mutate({ id: editReport.IdReport, data })}
-              isPending={updateMutation.isPending}
-              submitLabel="Save Changes"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={!!deleteReport} onOpenChange={(open) => !open && setDeleteReport(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Production Report</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete report{" "}
-              <span className="font-mono font-semibold">{deleteReport?.IdReport}</span>? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteReport && deleteMutation.mutate(deleteReport.IdReport)}
-              disabled={deleteMutation.isPending}
-              data-testid="button-confirm-delete"
-              className="bg-destructive text-destructive-foreground"
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
