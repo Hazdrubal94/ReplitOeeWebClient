@@ -10,16 +10,19 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  SidebarSeparator
 } from "@/components/ui/sidebar";
-import { TableProperties, LayoutDashboard, Activity } from "lucide-react";
+import { TableOfContents, LayoutDashboard, Activity, FileSpreadsheet } from "lucide-react";
+import { useCurrentReport } from "@/lib/current-report-context";
 
 const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Production Reports", url: "/reports", icon: TableProperties }
+  { title: "Production Reports", url: "/reports", icon: TableOfContents },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard }
 ];
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { reportId } = useCurrentReport();
 
   return (
     <Sidebar>
@@ -34,7 +37,32 @@ export function AppSidebar() {
           </div>
         </div>
       </SidebarHeader>
-
+      {reportId && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-sidebar-foreground/40 text-xs font-medium uppercase tracking-wider px-4 mb-1">
+                Current Report
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === `/reports/${reportId}`}
+                      className="data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+                    >
+                      <Link href={`/reports/${reportId}`} title={`Report: ${reportId}`}>
+                        <FileSpreadsheet className="w-4 h-4" />
+                        <span className="truncate">{reportId}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/40 text-xs font-medium uppercase tracking-wider px-4 mb-1">
@@ -43,7 +71,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
-                const isActive = location === item.url || (item.url !== "/" && location.startsWith(item.url));
+                const isActive = location === item.url || (item.url !== "/" && location.startsWith(item.url) && !location.startsWith("/reports/"));
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton

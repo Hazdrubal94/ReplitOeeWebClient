@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { api } from "@/lib/api";
 import type { GetProductionReport, CreateProductionReport } from "@shared/schema";
@@ -27,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
   Search,
-  Pencil,
+  FolderOpen,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
@@ -59,12 +60,11 @@ function formatDateCell(val: string) {
 
 export default function ProductionReports() {
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [createOpen, setCreateOpen] = useState(false);
-  const [editReport, setEditReport] = useState<GetProductionReport | null>(null);
-  const [deleteReport, setDeleteReport] = useState<GetProductionReport | null>(null);
 
   const { data: reports = [], isLoading, isError, refetch, isFetching } = useQuery<GetProductionReport[]>({
     queryKey: ["/api/proxy/reports"],
@@ -81,31 +81,6 @@ export default function ProductionReports() {
     },
     onError: (err: Error) => {
       toast({ title: "Failed to create report", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: CreateProductionReport }) =>
-      api.updateProductionReport(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/proxy/reports"] });
-      setEditReport(null);
-      toast({ title: "Report updated", description: "Production report has been updated successfully." });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Failed to update report", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.deleteProductionReport(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/proxy/reports"] });
-      setDeleteReport(null);
-      toast({ title: "Report deleted", description: "Production report has been removed." });
-    },
-    onError: (err: Error) => {
-      toast({ title: "Failed to delete report", description: err.message, variant: "destructive" });
     },
   });
 
@@ -244,8 +219,8 @@ export default function ProductionReports() {
                     <SortableHeader col="shift" label="Shift" />
                     <SortableHeader col="userId" label="UserId" />
                     <SortableHeader col="userName" label="User Name" />
-                    <SortableHeader col="openReport" label="Is Opened" />
-                    <TableHead className="text-right">Edit</TableHead>
+                    <SortableHeader col="openReport" label="Status" />
+                    <TableHead className="text-right">Open</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -266,7 +241,7 @@ export default function ProductionReports() {
                             variant={report.openReport ? "default" : "secondary"}
                             data-testid={`status-report-${report.idReport}`}
                         >
-                            {report.openReport ? "Open" : "Closed"}
+                            {report.openReport ? "Opened" : "Closed"}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -274,11 +249,10 @@ export default function ProductionReports() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => setEditReport(report)}
-                            data-testid={`button-edit-${report.idReport}`}
-                            title="Edit"
+                            onClick={() => navigate(`/reports/${report.idReport}`)}
+                            title="Open"
                           >
-                            <Pencil className="w-4 h-4" />
+                            <FolderOpen className="w-4 h-4" />
                           </Button>
                         </div>
                       </TableCell>

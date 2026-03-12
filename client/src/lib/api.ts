@@ -1,4 +1,4 @@
-import type { GetProductionReport, CreateProductionReport } from "@shared/schema";
+import type { GetProductionReport, GetProductionCounter, CreateProductionReport } from "@shared/schema";
 
 const BASE_URL = "https://localhost:8443";
 
@@ -25,6 +25,9 @@ export const api = {
 
   getProductionReport: (id: string): Promise<GetProductionReport> =>
     fetch(`${BASE_URL}/api/ProductionReports/ProductionReports/${id}`).then(r => handleResponse<GetProductionReport>(r)),
+
+  getProductionCounters: (reportId: string): Promise<GetProductionCounter[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/ProductionReports/${reportId}/ProductionCounters`).then(r => handleResponse<GetProductionCounter[]>(r)),
 
   createProductionReport: (report: CreateProductionReport): Promise<GetProductionReport> =>
     fetch(`${BASE_URL}/api/ProductionReports/ProductionReports`, {

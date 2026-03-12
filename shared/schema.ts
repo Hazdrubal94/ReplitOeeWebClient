@@ -16,11 +16,56 @@ export const createProductionReportSchema = z.object({
     shift: z.coerce.number(),
     userId: z.string(),
     userName: z.string(),
-    openDate: z.string()
+    openDate: z.string().default(() => new Date().toISOString())
+});
+
+export const getProductionCounterSchema = z.object({
+    hour: z.number(),
+    pn: z.string(),
+    okCount: z.number(),
+    nokCount: z.number(),
+    nokA: z.number(),
+    nokB: z.number(),
+    nokC: z.number(),
+    nokD: z.number(),
+    nokE: z.number(),
+    nokF: z.number(),
+    nokG: z.number(),
+    nokH: z.number(),
+    nokI: z.number(),
+    nokJ: z.number(),
+    nokK: z.number(),
+    nokL: z.number(),
+    nokM: z.number(),
+    nokN: z.number(),
+    nokO: z.number(),
+    nokP: z.number(),
+    nokQ: z.number(),
+    nokR: z.number(),
+    nokS: z.number(),
+    nokT: z.number(),
+    nokX: z.number(),
+    nokY: z.number(),
+    nokZ: z.number(),
+    nokAa: z.number(),
+    nokBb: z.number(),
+    nokCc: z.number(),
+    nokDd: z.number(),
+    nokEe: z.number(),
+    nokFf: z.number(),
+    nokGg: z.number(),
+    nokHh: z.number(),
+    nokIi: z.number(),
+    nokJj: z.number(),
+    nokKk: z.number(),
+    nokTaken: z.number(),
+    operators: z.number(),
+    operatorsIndirect: z.number()
 });
 
 export type GetProductionReport = z.infer<typeof getProductionReportSchema>;
 export type CreateProductionReport = z.infer<typeof createProductionReportSchema>;
+export type GetProductionCounter = z.infer<typeof getProductionCounterSchema>;
 
 export const users = {} as any;
 export const insertUserSchema = z.object({ username: z.string(), password: z.string() });

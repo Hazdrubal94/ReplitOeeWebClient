@@ -46,7 +46,15 @@ export function ProductionReportForm({
   submitLabel = "Save",
 }: ProductionReportFormProps) {
   const form = useForm<CreateProductionReport>({
-    resolver: zodResolver(createProductionReportSchema)
+    resolver: zodResolver(createProductionReportSchema),    
+    defaultValues: {
+      date: "",
+      area: "",
+      shift: 0,
+      userName: "",
+      userId: "",
+      openDate: new Date().toISOString()
+    }
   });
 
   const handleSubmit = (data: CreateProductionReport) => {
@@ -127,22 +135,6 @@ export function ProductionReportForm({
               )}
           />
         </div>
-
-        <Separator />
-
-        <FormField
-          control={form.control}
-          name="openDate"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Open Date</FormLabel>
-              <FormControl>
-                <Input type="datetime-local" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
 
         <div className="flex justify-end pt-2">
           <Button type="submit" disabled={isPending} data-testid="button-submit-form">
