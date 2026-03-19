@@ -32,8 +32,7 @@ export function AppSidebar() {
             <Activity className="w-5 h-5 text-sidebar-primary-foreground" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-sidebar-foreground leading-tight">OeeWebApp</p>
-            <p className="text-xs text-sidebar-foreground/50 leading-tight">Production Reporting 3.0</p>
+            <p className="text-xl font-semibold text-sidebar-foreground leading-tight">BWI MES 2.0</p>
           </div>
         </div>
       </SidebarHeader>

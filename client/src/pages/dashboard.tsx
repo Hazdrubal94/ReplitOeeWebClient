@@ -57,16 +57,16 @@ function StatCard({
 export default function Dashboard() {
   const { data: reports, isLoading, isError } = useQuery<GetProductionReport[]>({
     queryKey: ["/api/proxy/reports"],
-    queryFn: () => api.getProductionReports(50),
+    queryFn: () => api.getAllProductionReports(),
     retry: false,
   });
 
   const totalReports = reports?.length ?? 0;
-  const openReports = reports?.filter((r) => r.openReport).length ?? 0;
+  const openedReports = reports?.filter((r) => r.openReport).length ?? 0;
   const closedReports = reports?.filter((r) => !r.openReport).length ?? 0;
   const uniqueUsers = new Set(reports?.map((r) => r.userId)).size;
 
-  const recentReports = reports?.slice(0, 5) ?? [];
+  const recentReports = reports?.slice(0, 10) ?? [];
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -90,10 +90,10 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Reports" value={totalReports} icon={FileText} loading={isLoading} accent="blue" description="All production reports" />
-        <StatCard title="Open Reports" value={openReports} icon={CheckCircle2} loading={isLoading} accent="green" description="Currently open" />
-        <StatCard title="Closed Reports" value={closedReports} icon={XCircle} loading={isLoading} accent="red" description="Completed reports" />
-        <StatCard title="Unique Users" value={uniqueUsers} icon={Users} loading={isLoading} accent="purple" description="Distinct report authors" />
+        <StatCard title="Total Reports" value={totalReports} icon={FileText} loading={isLoading} accent="blue" />
+        <StatCard title="Opened Reports" value={openedReports} icon={CheckCircle2} loading={isLoading} accent="green" />
+        <StatCard title="Completed Reports" value={closedReports} icon={XCircle} loading={isLoading} accent="red" />
+        <StatCard title="Unique Users" value={uniqueUsers} icon={Users} loading={isLoading} accent="purple" />
       </div>
 
       <Card className="border border-card-border shadow-sm">
@@ -128,7 +128,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <Badge variant={report.openReport ? "default" : "secondary"} data-testid={`status-report-${report.idReport}`}>
-                    {report.openReport ? "Open" : "Closed"}
+                    {report.openReport ? "Opened" : "Completed"}
                   </Badge>
                 </div>
               ))}

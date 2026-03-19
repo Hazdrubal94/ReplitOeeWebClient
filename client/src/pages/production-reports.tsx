@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
@@ -16,6 +16,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -32,6 +39,8 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
+  ChevronLeft,
+  ChevronRight,
   AlertCircle,
   FileText,
   RefreshCw,
@@ -42,6 +51,8 @@ import { Card } from "@/components/ui/card";
 
 type SortKey = keyof GetProductionReport;
 type SortDir = "asc" | "desc";
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: SortDir }) {
   if (col !== sortKey) return <ChevronsUpDown className="w-3.5 h-3.5 ml-1 text-muted-foreground/50" />;
@@ -65,19 +76,26 @@ export default function ProductionReports() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [createOpen, setCreateOpen] = useState(false);
+  const [pageNumber, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const { data: reports = [], isLoading, isError, refetch, isFetching } = useQuery<GetProductionReport[]>({
-    queryKey: ["/api/proxy/reports"],
-    queryFn: () => api.getProductionReports(50),
-    retry: false,
+    queryKey: ["/api/proxy/reports", pageNumber, pageSize],
+    queryFn: () => api.getProductionReportsByPage(pageNumber, pageSize),
+    retry: false
   });
 
   const createMutation = useMutation({
     mutationFn: (data: CreateProductionReport) => api.createProductionReport(data),
-    onSuccess: () => {
+    onSuccess: (newReport) => {
       queryClient.invalidateQueries({ queryKey: ["/api/proxy/reports"] });
       setCreateOpen(false);
       toast({ title: "Report created", description: "Production report has been created successfully." });
+      navigate(`/reports/${newReport.idReport}`);
     },
     onError: (err: Error) => {
       toast({ title: "Failed to create report", description: err.message, variant: "destructive" });
@@ -119,6 +137,14 @@ export default function ProductionReports() {
     });
   }, [filtered, sortKey, sortDir]);
 
+  const hasNextPage = reports.length === pageSize;
+  const hasPrevPage = pageNumber > 1;
+
+  const handlePageSizeChange = (val: string) => {
+    setPageSize(Number(val));
+    setPage(1);
+  };
+
   const SortableHeader = ({ col, label }: { col: SortKey; label: string }) => (
     <TableHead
       className="cursor-pointer select-none whitespace-nowrap"
@@ -134,11 +160,13 @@ export default function ProductionReports() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-shrink-0 px-6 py-5 border-b border-border bg-background/95 sticky top-0 z-10">
-        <div className="flex flex-wrap items-center justify-between gap-3 max-w-7xl mx-auto">
+        <div className="flex flex-wrap items-center justify-between gap-3 mx-auto">
           <div>
             <h1 className="text-xl font-bold text-foreground">Production Reports</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {isLoading ? "Loading..." : `${sorted.length} of ${reports.length} report${reports.length !== 1 ? "s" : ""}`}
+              {isLoading
+                ? "Loading..."
+                : `Page ${pageNumber} · ${sorted.length} record${sorted.length !== 1 ? "s" : ""}`}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -172,9 +200,9 @@ export default function ProductionReports() {
       </div>
 
       <div className="flex-1 overflow-hidden px-6 py-4">
-        <div className="max-w-7xl mx-auto h-full">
+        <div className="mx-auto h-full flex flex-col gap-3">
           {isError && (
-            <Card className="mb-4 border border-destructive/30 bg-destructive/5 p-4 flex items-center gap-3">
+            <Card className="mb-4 border border-destructive/30 bg-destructive/5 p-4 flex items-center gap-3 flex-shrink-0">
               <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-destructive">Cannot connect to REST API</p>
@@ -209,58 +237,101 @@ export default function ProductionReports() {
               )}
             </div>
           ) : (
-            <ScrollArea className="h-full rounded-md border border-border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40">
-                    <SortableHeader col="idReport" label="Report ID" />
-                    <SortableHeader col="date" label="Date" />
-                    <SortableHeader col="area" label="Area" />
-                    <SortableHeader col="shift" label="Shift" />
-                    <SortableHeader col="userId" label="UserId" />
-                    <SortableHeader col="userName" label="User Name" />
-                    <SortableHeader col="openReport" label="Status" />
-                    <TableHead className="text-right">Open</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sorted.map((report) => (
-                    <TableRow
-                      key={report.idReport}
-                      className="productionReportSchema"
-                      data-testid={`row-report-${report.idReport}`}
-                      >
-                      <TableCell>{report.idReport}</TableCell>
-                      <TableCell>{report.date}</TableCell>
-                      <TableCell>{report.area}</TableCell>
-                      <TableCell>{report.shift}</TableCell>
-                      <TableCell>{report.userId}</TableCell>
-                      <TableCell>{report.userName}</TableCell>
-                      <TableCell>
-                        <Badge
-                            variant={report.openReport ? "default" : "secondary"}
-                            data-testid={`status-report-${report.idReport}`}
-                        >
-                            {report.openReport ? "Opened" : "Closed"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => navigate(`/reports/${report.idReport}`)}
-                            title="Open"
-                          >
-                            <FolderOpen className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+            <>
+              <ScrollArea className="h-full rounded-md border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40">
+                      <SortableHeader col="idReport" label="Report ID" />
+                      <SortableHeader col="date" label="Date" />
+                      <SortableHeader col="area" label="Area" />
+                      <SortableHeader col="shift" label="Shift" />
+                      <SortableHeader col="userId" label="UserId" />
+                      <SortableHeader col="userName" label="User Name" />
+                      <SortableHeader col="openReport" label="Status" />
+                      <TableHead className="text-right">Open</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                  </TableHeader>
+                  <TableBody>
+                    {sorted.map((report) => (
+                      <TableRow
+                        key={report.idReport}
+                        className="productionReportSchema"
+                        data-testid={`row-report-${report.idReport}`}
+                        >
+                        <TableCell>{report.idReport}</TableCell>
+                        <TableCell>{report.date}</TableCell>
+                        <TableCell>{report.area}</TableCell>
+                        <TableCell>{report.shift}</TableCell>
+                        <TableCell>{report.userId}</TableCell>
+                        <TableCell>{report.userName}</TableCell>
+                        <TableCell>
+                          <Badge
+                              variant={report.openReport ? "default" : "secondary"}
+                              data-testid={`status-report-${report.idReport}`}
+                          >
+                              {report.openReport ? "Opened" : "Completed"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => navigate(`/reports/${report.idReport}`)}
+                              title="Open"
+                            >
+                              <FolderOpen className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+
+              {/* Pagination bar */}
+              <div className="flex-shrink-0 flex items-center justify-between gap-4 pt-1">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Rows per page</span>
+                  <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+                    <SelectTrigger className="h-8 w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAGE_SIZE_OPTIONS.map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Page {pageNumber}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setPage((p) => p - 1)}
+                    disabled={!hasPrevPage || isFetching}
+                    title="Previous page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={!hasNextPage || isFetching}
+                    title="Next page"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </>            
           )}
         </div>
       </div>
