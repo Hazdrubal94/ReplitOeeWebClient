@@ -17,8 +17,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, AlertCircle, ChevronDown, ChevronUp, Pen, Minus, Plus } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Pen, Plus } from "lucide-react";
 import { format } from "date-fns";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ProductionCounterForm from "@/components/production-counter-form";
+import ProductionEventForm from "@/components/production-event-form";
 
 interface CurrentReportProps {
   params: { reportId: string };
@@ -31,7 +34,10 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const queryClient = useQueryClient();
   const [expandedCounterRows, setExpandedCounterRows] = useState<Set<number>>(new Set());
   const [expandedEventRows, setExpandedEventRows] = useState<Set<number>>(new Set());
-  const [nokEdits, setNokEdits] = useState<Record<number, Record<string, number>>>({});
+  const [isCounterFormOpen, setIsCounterFormOpen] = useState(false);
+  const [selectedCounter, setSelectedCounter] = useState<GetProductionCounter | undefined>(undefined);
+  const [isEventFormOpen, setIsEventFormOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<GetProductionEvent | undefined>(undefined);
   const reportId = params?.reportId;
 
   useEffect(() => {
@@ -84,10 +90,6 @@ export default function CurrentReport({ params }: CurrentReportProps) {
 
   const allNokColumns = getNokColumns();
 
-  const activeNokColumns = allNokColumns.filter(col =>
-    counters.some(counter => (counter[col] as number) > 0)
-  );
-
   const toggleCounterRowExpanded = (idx: number) => {
     const newExpanded = new Set(expandedCounterRows);
     if (newExpanded.has(idx)) {
@@ -108,17 +110,35 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     setExpandedEventRows(newExpanded);
   };
 
-  const changeNokValue = (counterIdx: number, col: string, delta: number, currentValue: number) => {
-    const current = nokEdits[counterIdx]?.[col] ?? currentValue;
-    const next = Math.max(0, current + delta);
-    setNokEdits(prev => ({
-      ...prev,
-      [counterIdx]: { ...prev[counterIdx], [col]: next },
-    }));
+  const handleAddCounter = () => {
+    setSelectedCounter(undefined);
+    setIsCounterFormOpen(true);
   };
 
-  const getNokValue = (counterIdx: number, col: string, original: number): number =>
-    nokEdits[counterIdx]?.[col] ?? original;
+  const handleEditCounter = (counter: GetProductionCounter) => {
+    setSelectedCounter(counter);
+    setIsCounterFormOpen(true);
+  };
+
+  const handleCounterFormClose = () => {
+    setIsCounterFormOpen(false);
+    setSelectedCounter(undefined);
+  }
+
+  const handleAddEvent = () => {
+    setSelectedEvent(undefined);
+    setIsEventFormOpen(true);
+  };
+
+  const handleEditEvent = (event: GetProductionEvent) => {
+    setSelectedEvent(event);
+    setIsEventFormOpen(true);
+  };
+
+  const handleEventFormClose = () => {
+    setIsEventFormOpen(false);
+    setSelectedEvent(undefined);
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -204,8 +224,12 @@ export default function CurrentReport({ params }: CurrentReportProps) {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {/* Production Counters Table */}
             <Card className="border border-border shadow-sm min-w-0">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Production Counters</CardTitle>
+                <Button onClick={handleAddCounter} size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add
+                </Button>
               </CardHeader>
               <CardContent>
                 {countersLoading ? (
@@ -231,12 +255,13 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                           <TableHead>Operators</TableHead>
                           <TableHead>Operators Indirect</TableHead>
                           <TableHead>Production Time</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {counters.map((counter, idx) => {
                           const activeNoksForRow = allNokColumns.filter(
-                            col => getNokValue(idx, col as string, counter[col] as number) > 0
+                            col => (counter[col] as number) > 0
                           );
                           return (
                             <>
@@ -259,10 +284,15 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                 <TableCell>{counter.operators}</TableCell>
                                 <TableCell>{counter.operatorsIndirect}</TableCell>
                                 <TableCell>{counter.productionTime}</TableCell>
+                                <TableCell className="text-right">
+                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditCounter(counter); }}>
+                                    <Pen className="w-4 h-4" />
+                                  </Button>
+                                </TableCell>
                               </TableRow>
                               {expandedCounterRows.has(idx) && (
                                 <TableRow key={`${idx}-details`} className="bg-muted/20">
-                                  <TableCell colSpan={8} className="p-0">
+                                  <TableCell colSpan={9} className="p-0">
                                     {activeNoksForRow.length === 0 ? (
                                       <p className="text-xs text-muted-foreground px-6 py-3">No NOK categories with values greater than 0.</p>
                                     ) : (
@@ -271,39 +301,16 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                           <tr className="border-b border-border bg-muted/30">
                                             <th className="text-left px-6 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">NOK Category</th>
                                             <th className="text-right px-6 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Value</th>
-                                            <th className="w-28 px-4 py-2"></th>
                                           </tr>
                                         </thead>
                                         <tbody>
                                           {activeNoksForRow.map((col) => {
                                             const label = `NOK_${(col as string).replace('nok', '').toUpperCase()}`;
-                                            const original = counter[col] as number;
-                                            const value = getNokValue(idx, col as string, original);
+                                            const value = counter[col] as number;
                                             return (
                                               <tr key={col as string} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                                                 <td className="px-6 py-2 font-medium">{label}</td>
                                                 <td className="px-6 py-2 text-right font-bold">{value}</td>
-                                                <td className="px-4 py-2">
-                                                  <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
-                                                    <Button
-                                                      variant="outline"
-                                                      size="icon"
-                                                      className="h-7 w-7"
-                                                      onClick={() => changeNokValue(idx, col as string, -1, original)}
-                                                      disabled={value <= 0}
-                                                    >
-                                                      <Minus className="w-3 h-3" />
-                                                    </Button>
-                                                    <Button
-                                                      variant="outline"
-                                                      size="icon"
-                                                      className="h-7 w-7"
-                                                      onClick={() => changeNokValue(idx, col as string, +1, original)}
-                                                    >
-                                                      <Plus className="w-3 h-3" />
-                                                    </Button>
-                                                  </div>
-                                                </td>
                                               </tr>
                                             );
                                           })}
@@ -325,8 +332,12 @@ export default function CurrentReport({ params }: CurrentReportProps) {
 
             {/* Production Events Table */}
             <Card className="border border-border shadow-sm min-w-0">
-              <CardHeader>
+              <CardHeader  className="flex flex-row items-center justify-between">
                 <CardTitle>Production Events</CardTitle>
+                <Button onClick={handleAddEvent} size="sm" disabled={reportLoading}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add
+                </Button>
               </CardHeader>
               <CardContent>
                 {eventsLoading ? (
@@ -349,6 +360,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                           <TableHead>Stop Time</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead>Machine</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -377,11 +389,16 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                 <TableCell>{event.stopTime.slice(0,5)}</TableCell>
                                 <TableCell>{event.category}</TableCell>
                                 <TableCell>{event.machine}</TableCell>
+                                <TableCell className="text-right">
+                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }} disabled={reportLoading}>
+                                    <Pen className="w-4 h-4" />
+                                  </Button>
+                                </TableCell>
                               </TableRow>
 
                               {hasDescription && expandedEventRows.has(idx) && (
                                 <TableRow key={`event-${idx}-details`} className="bg-muted/20 hover:bg-muted/30">
-                                  <TableCell colSpan={5} className="px-6 py-3">
+                                  <TableCell colSpan={6} className="px-6 py-3">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
                                       Description
                                     </p>
@@ -401,6 +418,39 @@ export default function CurrentReport({ params }: CurrentReportProps) {
           </div>
         </div>
       </div>
+      <Dialog open={isCounterFormOpen} onOpenChange={handleCounterFormClose}>
+        <DialogContent className="sm:max-w-[80vw]">
+            <DialogHeader>
+                <DialogTitle>{selectedCounter ? 'Edit Counter' : 'Add Counter'}</DialogTitle>
+            </DialogHeader>
+            <ProductionCounterForm
+                reportId={reportId!}
+                initialData={selectedCounter}
+                onSuccess={() => {
+                    handleCounterFormClose();
+                    queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Counters`] });
+                }}
+            />
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isEventFormOpen} onOpenChange={handleEventFormClose}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedEvent ? "Edit Event" : "Add Event"}</DialogTitle>
+          </DialogHeader>
+            {report && (
+              <ProductionEventForm
+                reportId={reportId!}
+                initialData={selectedEvent}
+                userName={report.userName}
+                onSuccess={() => {
+                  handleEventFormClose();
+                  queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Events`] });
+                }}
+              />
+            )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { GetProductionReport, GetProductionCounter, GetProductionEvent, CreateProductionReport } from "@shared/schema";
+import type { GetProductionReport, CreateProductionReport, GetProductionCounter, GetProductionEvent, CreateProductionEvent, UpdateProductionEvent } from "@shared/schema";
 
 const BASE_URL = "https://localhost:8443";
 
@@ -44,8 +44,36 @@ export const api = {
   getProductionCounters: (reportId: string): Promise<GetProductionCounter[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Counters`).then(r => handleResponse<GetProductionCounter[]>(r)),
 
+  createProductionCounter: (reportId: string, counter: GetProductionCounter): Promise<GetProductionCounter> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Counters`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(counter),
+    }).then(r => handleResponse<GetProductionCounter>(r)),
+
+  updateProductionCounter: (reportId: string, hour: number, counter: GetProductionCounter): Promise<GetProductionCounter> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Counters/${hour}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(counter),
+    }).then(r => handleResponse<GetProductionCounter>(r)),
+
   getProductionEvents: (reportId: string): Promise<GetProductionEvent[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Events`).then(r => handleResponse<GetProductionEvent[]>(r)),
+
+  createProductionEvent: (reportId: string, event: CreateProductionEvent): Promise<GetProductionEvent> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(event),
+    }).then(r => handleResponse<GetProductionEvent>(r)),
+
+  updateProductionEvent: (reportId: string, id: number, event: UpdateProductionEvent): Promise<GetProductionEvent> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Events/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(event),
+    }).then(r => handleResponse<GetProductionEvent>(r)),
 
   createProductionReport: (report: CreateProductionReport): Promise<GetProductionReport> =>
     fetch(`${BASE_URL}/api/ProductionReports`, {
