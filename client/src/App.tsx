@@ -11,6 +11,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CurrentReportProvider } from "@/lib/current-report-context";
+import BwiLogo from "@/components/bwi-mes-logo"
 
 const style = {
   "--sidebar-width": "18rem",
@@ -40,7 +41,7 @@ function App() {
                 <header className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-background/95 backdrop-blur-sm flex-shrink-0 sticky top-0 z-20">
                   <div className="flex items-center gap-3">
                     <SidebarTrigger data-testid="button-sidebar-toggle" />
-                    <span className="text-sm font-semibold text-foreground hidden sm:block">OeeWebApp</span>
+                    <BwiLogo className="w-26 h-16 text-sidebar-primary-foreground" />
                   </div>
                   <ThemeToggle />
                 </header>

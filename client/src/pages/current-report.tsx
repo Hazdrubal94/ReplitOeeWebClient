@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertCircle, ChevronDown, ChevronUp, Pen, Plus } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Pen, PenLine, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ProductionCounterForm from "@/components/production-counter-form";
@@ -194,7 +194,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                       onClick={() => closeMutation.mutate()}
                       disabled={closeMutation.isPending || !report.openReport}
                     >
-                      <Pen className="w-4 h-4 mr-2" />
+                      <PenLine className="w-4 h-4 mr-2" />
                       {closeMutation.isPending ? "Completing..." : "Complete"}
                     </Button>
                   </div>
