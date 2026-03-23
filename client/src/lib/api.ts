@@ -1,4 +1,5 @@
-import type { GetProductionReport, CreateProductionReport, GetProductionCounter, GetProductionEvent, CreateProductionEvent, UpdateProductionEvent } from "@shared/schema";
+import type { GetProductionReport, CreateProductionReport, GetProductionCounter, GetProductionEvent, CreateUpdateProductionEvent, GetNokCategory, getCategoryDescriptionSchema, getMachineDescriptionSchema } from "@shared/schema";
+import { z } from "zod";
 
 const BASE_URL = "https://localhost:8443";
 
@@ -18,6 +19,9 @@ async function handleResponse<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   return res.json();
 }
+
+type CategoryDescription = z.infer<typeof getCategoryDescriptionSchema>;
+type MachineDescription = z.infer<typeof getMachineDescriptionSchema>;
 
 export const api = {
   getAllProductionReports: (): Promise<GetProductionReport[]> =>
@@ -61,19 +65,24 @@ export const api = {
   getProductionEvents: (reportId: string): Promise<GetProductionEvent[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Events`).then(r => handleResponse<GetProductionEvent[]>(r)),
 
-  createProductionEvent: (reportId: string, event: CreateProductionEvent): Promise<GetProductionEvent> =>
+  createProductionEvent: (reportId: string, event: CreateUpdateProductionEvent): Promise<GetProductionEvent> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(event),
     }).then(r => handleResponse<GetProductionEvent>(r)),
 
-  updateProductionEvent: (reportId: string, id: number, event: UpdateProductionEvent): Promise<GetProductionEvent> =>
+  updateProductionEvent: (reportId: string, id: number, event: CreateUpdateProductionEvent): Promise<GetProductionEvent> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Events/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(event),
     }).then(r => handleResponse<GetProductionEvent>(r)),
+
+  deleteProductionEvent: (id: number): Promise<void> =>
+    fetch(`${BASE_URL}/api/ProductionReports/Events/${id}`, {
+      method: "DELETE",
+    }).then(r => handleResponse<void>(r)),
 
   createProductionReport: (report: CreateProductionReport): Promise<GetProductionReport> =>
     fetch(`${BASE_URL}/api/ProductionReports`, {
@@ -93,4 +102,16 @@ export const api = {
     fetch(`${BASE_URL}/api/ProductionReports/${id}`, {
       method: "DELETE",
     }).then(r => handleResponse<void>(r)),
+
+  getCategoryDescriptions: (): Promise<CategoryDescription[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/Categories`).then(r => handleResponse<CategoryDescription[]>(r)),
+
+  getMachineDescriptions: (area: string): Promise<MachineDescription[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/Machines?area=${area}`).then(r => handleResponse<MachineDescription[]>(r)),
+
+  getNokCategories: (area: string): Promise<GetNokCategory[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/NokCategories?area=${area}`).then(r => handleResponse<GetNokCategory[]>(r)),
+
+  getPNs: (area: string): Promise<string[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/PNs?area=${area}`).then(r => handleResponse<string[]>(r)),
 };

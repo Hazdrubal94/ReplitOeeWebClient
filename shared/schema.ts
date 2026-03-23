@@ -68,38 +68,48 @@ export const getProductionEventSchema = z.object({
   id: z.number(),
   startTime: z.string(),
   stopTime: z.string(),
-  category: z.string(),
-  machine: z.string(),
+  category: z.number(),
+  machineNr: z.number(),
   description: z.string(),
 });
 
-export const createProductionEventSchema = z.object({
-  idReport: z.string(),
+export const createUpdateProductionEventSchema = z.object({
   userName: z.string(),
   updateTime: z.string().default(() => new Date().toISOString()),
   startTime: z.string(),
   stopTime: z.string(),
-  category: z.string(),
-  machine: z.string(),
+  category: z.coerce.number(),
+  machineNr: z.coerce.number(),
   description: z.string(),
 });
 
-export const updateProductionEventSchema = z.object({
-  userName: z.string(),
-  updateTime: z.string().default(() => new Date().toISOString()),
-  startTime: z.string(),
-  stopTime: z.string(),
-  category: z.string(),
+export const getCategoryDescriptionSchema = z.object({
+  id: z.number(),
+  description: z.string(),
+  desciptionEn: z.string(),
+});
+
+export const getMachineDescriptionSchema = z.object({
+  id: z.number(),
+  area: z.string(),
   machine: z.string(),
   description: z.string(),
+  descriptionEn: z.string(),
+});
+
+export const getNokCategorySchema = z.object({
+  id: z.number(),
+  coding: z.string(),
+  descriptionEn: z.string(),
+  descriptionSp: z.string(),
 });
 
 export type GetProductionReport = z.infer<typeof getProductionReportSchema>;
 export type CreateProductionReport = z.infer<typeof createProductionReportSchema>;
 export type GetProductionCounter = z.infer<typeof getProductionCounterSchema>;
 export type GetProductionEvent = z.infer<typeof getProductionEventSchema>;
-export type CreateProductionEvent = z.infer<typeof createProductionEventSchema>;
-export type UpdateProductionEvent = z.infer<typeof updateProductionEventSchema>;
+export type CreateUpdateProductionEvent = z.infer<typeof createUpdateProductionEventSchema>;
+export type GetNokCategory = z.infer<typeof getNokCategorySchema>;
 
 export const users = {} as any;
 export const insertUserSchema = z.object({ username: z.string(), password: z.string() });

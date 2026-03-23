@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useCurrentReport } from "@/lib/current-report-context";
 import { useToast } from "@/hooks/use-toast";
-import type { GetProductionReport, GetProductionCounter, GetProductionEvent } from "@shared/schema";
+import type { GetProductionReport, GetProductionCounter, GetProductionEvent, getCategoryDescriptionSchema, getMachineDescriptionSchema, GetNokCategory } from "@shared/schema";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -17,15 +18,28 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertCircle, ChevronDown, ChevronUp, Pen, PenLine, Plus } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Pen, PenLine, Plus, Trash } from "lucide-react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ProductionCounterForm from "@/components/production-counter-form";
 import ProductionEventForm from "@/components/production-event-form";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CurrentReportProps {
   params: { reportId: string };
 }
+
+type CategoryDescription = z.infer<typeof getCategoryDescriptionSchema>;
+type MachineDescription = z.infer<typeof getMachineDescriptionSchema>;
 
 export default function CurrentReport({ params }: CurrentReportProps) {
   const [, navigate] = useLocation();
@@ -38,6 +52,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const [selectedCounter, setSelectedCounter] = useState<GetProductionCounter | undefined>(undefined);
   const [isEventFormOpen, setIsEventFormOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<GetProductionEvent | undefined>(undefined);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<GetProductionEvent | null>(null);
   const reportId = params?.reportId;
 
   useEffect(() => {
@@ -77,8 +93,53 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     retry: false,
   });
 
+  const { data: categoryDescriptions = [] } = useQuery<CategoryDescription[]>({
+    queryKey: ["/api/category-descriptions"],
+    queryFn: () => api.getCategoryDescriptions(),
+    enabled: !!reportId,
+  });
+
+  const { data: machineDescriptions = [] } = useQuery<MachineDescription[]>({
+    queryKey: [`/api/machine-descriptions/${report?.area}`],
+    queryFn: () => api.getMachineDescriptions(report!.area),
+    enabled: !!report,
+  });
+
+  const { data: nokCategories = [] } = useQuery<GetNokCategory[]>({
+    queryKey: [`/api/nok-categories/${report?.area}`],
+    queryFn: () => api.getNokCategories(report!.area),
+    enabled: !!report,
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: (eventId: number) => api.deleteProductionEvent(eventId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Events`] });
+      toast({ title: "Event deleted" });
+      setIsDeleteAlertOpen(false);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to delete event", description: err.message, variant: "destructive" });
+    },
+  });
+
   const isLoading = reportLoading || countersLoading || eventsLoading;
   const isError = reportError;
+  
+  const getCategoryDesc = (id: number) => {
+    const category = categoryDescriptions.find(c => c.id === id);
+    return category ? category.description : id;
+  }
+
+  const getMachineDesc = (id: number) => {
+    const machine = machineDescriptions.find(m => m.id === id);
+    return machine ? `${machine.machine} - ${machine.description}` : id;
+  }
+
+  const getNokDesc = (coding: string) => {
+    const category = nokCategories.find(c => c.coding === coding);
+    return category ? category.descriptionEn : null;
+  }
 
   const getNokColumns = () => {
     if (counters.length === 0) return [];
@@ -138,7 +199,18 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const handleEventFormClose = () => {
     setIsEventFormOpen(false);
     setSelectedEvent(undefined);
-  }
+  };
+
+  const handleDeleteEvent = (event: GetProductionEvent) => {
+    setEventToDelete(event);
+    setIsDeleteAlertOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (eventToDelete) {
+      deleteEventMutation.mutate(eventToDelete.id);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -305,11 +377,12 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                         </thead>
                                         <tbody>
                                           {activeNoksForRow.map((col) => {
-                                            const label = `NOK_${(col as string).replace('nok', '').toUpperCase()}`;
                                             const value = counter[col] as number;
+                                            const description = getNokDesc(((col as string).slice(0,3) + '_' + (col as string).slice(3)).toUpperCase());
+                                            if (!description) return null;
                                             return (
                                               <tr key={col as string} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                                                <td className="px-6 py-2 font-medium">{label}</td>
+                                                <td className="px-6 py-2 font-medium">{description}</td>
                                                 <td className="px-6 py-2 text-right font-bold">{value}</td>
                                               </tr>
                                             );
@@ -387,15 +460,17 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                 </TableCell>
                                 <TableCell>{event.startTime.slice(0,5)}</TableCell>
                                 <TableCell>{event.stopTime.slice(0,5)}</TableCell>
-                                <TableCell>{event.category}</TableCell>
-                                <TableCell>{event.machine}</TableCell>
+                                <TableCell>{getCategoryDesc(event.category)}</TableCell>
+                                <TableCell>{getMachineDesc(event.machineNr)}</TableCell>
                                 <TableCell className="text-right">
                                   <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }} disabled={reportLoading}>
                                     <Pen className="w-4 h-4" />
                                   </Button>
+                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event); }} disabled={reportLoading}>
+                                    <Trash className="w-4 h-4" />
+                                  </Button>
                                 </TableCell>
                               </TableRow>
-
                               {hasDescription && expandedEventRows.has(idx) && (
                                 <TableRow key={`event-${idx}-details`} className="bg-muted/20 hover:bg-muted/30">
                                   <TableCell colSpan={6} className="px-6 py-3">
@@ -420,17 +495,20 @@ export default function CurrentReport({ params }: CurrentReportProps) {
       </div>
       <Dialog open={isCounterFormOpen} onOpenChange={handleCounterFormClose}>
         <DialogContent className="sm:max-w-[80vw]">
-            <DialogHeader>
-                <DialogTitle>{selectedCounter ? 'Edit Counter' : 'Add Counter'}</DialogTitle>
-            </DialogHeader>
+          <DialogHeader>
+              <DialogTitle>{selectedCounter ? 'Edit Counter' : 'Add Counter'}</DialogTitle>
+          </DialogHeader>
+          {report && (
             <ProductionCounterForm
-                reportId={reportId!}
-                initialData={selectedCounter}
-                onSuccess={() => {
-                    handleCounterFormClose();
-                    queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Counters`] });
-                }}
-            />
+              reportId={reportId!}
+              reportArea={report.area}
+              initialData={selectedCounter}
+              onSuccess={() => {
+                handleCounterFormClose();
+                queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Counters`] });
+            }}
+          />
+          )}
         </DialogContent>
       </Dialog>
       <Dialog open={isEventFormOpen} onOpenChange={handleEventFormClose}>
@@ -443,6 +521,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                 reportId={reportId!}
                 initialData={selectedEvent}
                 userName={report.userName}
+                categoryDescriptions={categoryDescriptions}
+                machineDescriptions={machineDescriptions}
                 onSuccess={() => {
                   handleEventFormClose();
                   queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Events`] });
@@ -451,6 +531,22 @@ export default function CurrentReport({ params }: CurrentReportProps) {
             )}
         </DialogContent>
       </Dialog>
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this event?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the event.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={deleteEventMutation.isPending}>
+              {deleteEventMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

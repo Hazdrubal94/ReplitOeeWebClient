@@ -12,26 +12,38 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import { GetProductionCounter, getProductionCounterSchema } from "@shared/schema";
-import { useMutation } from "@tanstack/react-query";
+import { GetNokCategory, GetProductionCounter, getProductionCounterSchema } from "@shared/schema";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
 import { Minus, Plus } from "lucide-react";
 
 interface ProductionCounterFormProps {
   reportId: string;
+  reportArea: string;
   initialData?: GetProductionCounter;
   onSuccess: () => void;
 }
 
 const formSchema = getProductionCounterSchema;
 
-export default function ProductionCounterForm({ reportId, initialData, onSuccess }: ProductionCounterFormProps) {
+export default function ProductionCounterForm({ reportId, reportArea, initialData, onSuccess }: ProductionCounterFormProps) {
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData,
   });
+
+  const { data: nokCategories = [] } = useQuery<GetNokCategory[]>({
+    queryKey: [`/api/nok-categories/${reportArea}`],
+    queryFn: () => api.getNokCategories(reportArea),
+    enabled: !!reportArea,
+  });
+
+  const getNokDescription = (coding: string) => {
+    const category = nokCategories.find(c => c.coding === coding);
+    return category ? category.descriptionEn : null;
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: z.infer<typeof formSchema>) => api.createProductionCounter(reportId, data as GetProductionCounter),
@@ -203,20 +215,25 @@ export default function ProductionCounterForm({ reportId, initialData, onSuccess
         </div>
         <hr className="my-6" />
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        {nokFields.map(field => (
-          <FormField
-            key={field}
-            control={form.control}
-            name={field as any}
-            render={({ field: formField }) => (
-              <FormItem>
-                <FormLabel>{field.toUpperCase()}</FormLabel>
-                {renderNumericInput(formField)}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ))}
+        {nokFields.map(field => {
+          const description = getNokDescription((field.slice(0,3) + '_' + field.slice(3)).toUpperCase());
+          if (!description) return null;
+
+          return (
+            <FormField
+              key={field}
+              control={form.control}
+              name={field as any}
+              render={({ field: formField }) => (
+                <FormItem>
+                  <FormLabel>{description}</FormLabel>
+                  {renderNumericInput(formField)}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          );
+        })}
         </div>
         </ScrollArea>
         <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>

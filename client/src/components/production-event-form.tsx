@@ -13,50 +13,36 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
-import { GetProductionEvent, CreateProductionEvent, UpdateProductionEvent, createProductionEventSchema, updateProductionEventSchema } from "@shared/schema";
+import { GetProductionEvent, CreateUpdateProductionEvent, createUpdateProductionEventSchema, getCategoryDescriptionSchema, getMachineDescriptionSchema } from "@shared/schema";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ProductionEventFormProps {
   reportId: string;
   userName: string;
   initialData?: GetProductionEvent;
+  categoryDescriptions: z.infer<typeof getCategoryDescriptionSchema>[];
+  machineDescriptions: z.infer<typeof getMachineDescriptionSchema>[];
   onSuccess: () => void;
 }
 
-const productionEventFormSchema = z.object({
-  startTime: z.string().nonempty({ message: "Start time is required." }),
-  stopTime: z.string().nonempty({ message: "Stop time is required." }),
-  category: z.string().nonempty({ message: "Category is required." }),
-  machine: z.string().nonempty({ message: "Machine is required." }),
-  description: z.string(),
-});
-
-type ProductionEventFormValues = z.infer<typeof productionEventFormSchema>;
-
-export default function ProductionEventForm({ reportId, userName, initialData, onSuccess }: ProductionEventFormProps) {
+export default function ProductionEventForm({ reportId, userName, initialData, categoryDescriptions, machineDescriptions, onSuccess }: ProductionEventFormProps) {
   const { toast } = useToast();
-  const form = useForm<ProductionEventFormValues>({
-    resolver: zodResolver(productionEventFormSchema),
-    defaultValues: initialData
-      ? {
-          startTime: initialData.startTime,
-          stopTime: initialData.stopTime,
-          category: initialData.category,
-          machine: initialData.machine,
-          description: initialData.description,
-        }
-      : {
-          startTime: "",
-          stopTime: "",
-          category: "",
-          machine: "",
-          description: "",
-        },
+  const form = useForm<CreateUpdateProductionEvent>({
+    resolver: zodResolver(createUpdateProductionEventSchema),
+    defaultValues: {
+      startTime: initialData?.startTime ?? "",
+      stopTime: initialData?.stopTime ?? "",
+      category: initialData?.category ?? 0,
+      machineNr: initialData?.machineNr ?? 0,
+      description: initialData?.description ?? "",
+      userName: userName,
+    },
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateProductionEvent) => api.createProductionEvent(reportId, data),
+    mutationFn: (data: CreateUpdateProductionEvent) => api.createProductionEvent(reportId, data),
     onSuccess,
     onError: (err: Error) => {
       toast({ title: "Failed to create event", description: err.message, variant: "destructive" });
@@ -64,22 +50,18 @@ export default function ProductionEventForm({ reportId, userName, initialData, o
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: UpdateProductionEvent) => api.updateProductionEvent(reportId, initialData!.id, data),
+    mutationFn: (data: CreateUpdateProductionEvent) => api.updateProductionEvent(reportId, initialData!.id, data),
     onSuccess,
     onError: (err: Error) => {
       toast({ title: "Failed to update event", description: err.message, variant: "destructive" });
     },
   });
 
-  const onSubmit = (values: ProductionEventFormValues) => {
+  const onSubmit = (values: CreateUpdateProductionEvent) => {
     if (initialData) {
-      const dataToParse = { ...values, userName };
-      const parsedData = updateProductionEventSchema.parse(dataToParse);
-      updateMutation.mutate(parsedData);
+      updateMutation.mutate(values);
     } else {
-      const dataToParse = { ...values, idReport: reportId, userName };
-      const parsedData = createProductionEventSchema.parse(dataToParse);
-      createMutation.mutate(parsedData);
+      createMutation.mutate(values);
     }
   };
 
@@ -122,22 +104,44 @@ export default function ProductionEventForm({ reportId, userName, initialData, o
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="e.g., Maintenance" />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categoryDescriptions.map((category) => (
+                        <SelectItem key={category.id} value={String(category.id)}>
+                          {category.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <FormField
               control={form.control}
-              name="machine"
+              name="machineNr"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Machine</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="e.g., Assembly Line 1" />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a machine" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {machineDescriptions.map((machine) => (
+                        <SelectItem key={machine.id} value={String(machine.id)}>
+                          {machine.machine} - {machine.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
