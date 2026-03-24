@@ -1,4 +1,4 @@
-import type { GetProductionReport, CreateProductionReport, GetProductionCounter, GetProductionEvent, CreateUpdateProductionEvent, GetNokCategory, getCategoryDescriptionSchema, getMachineDescriptionSchema } from "@shared/schema";
+import type { GetProductionReport, CreateProductionReport, GetProductionCounter, CreateUpdateProductionCounter, GetProductionEvent, CreateUpdateProductionEvent, GetNokCategory, getCategoryDescriptionSchema, getMachineDescriptionSchema } from "@shared/schema";
 import { z } from "zod";
 
 const BASE_URL = "https://localhost:8443";
@@ -48,19 +48,24 @@ export const api = {
   getProductionCounters: (reportId: string): Promise<GetProductionCounter[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Counters`).then(r => handleResponse<GetProductionCounter[]>(r)),
 
-  createProductionCounter: (reportId: string, counter: GetProductionCounter): Promise<GetProductionCounter> =>
+  createProductionCounter: (reportId: string, event: CreateUpdateProductionCounter): Promise<GetProductionCounter> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Counters`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(counter),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(event),
     }).then(r => handleResponse<GetProductionCounter>(r)),
 
-  updateProductionCounter: (reportId: string, hour: number, counter: GetProductionCounter): Promise<GetProductionCounter> =>
-    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Counters/${hour}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(counter),
+  updateProductionCounter: (reportId: string, id: number, event: CreateUpdateProductionCounter): Promise<GetProductionCounter> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Counters/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(event),
     }).then(r => handleResponse<GetProductionCounter>(r)),
+
+  deleteProductionCounter: (id: number): Promise<void> =>
+    fetch(`${BASE_URL}/api/ProductionReports/Counters/${id}`, {
+      method: "DELETE",
+    }).then(r => handleResponse<void>(r)),
 
   getProductionEvents: (reportId: string): Promise<GetProductionEvent[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Events`).then(r => handleResponse<GetProductionEvent[]>(r)),

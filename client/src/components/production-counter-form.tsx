@@ -12,31 +12,81 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import { GetNokCategory, GetProductionCounter, getProductionCounterSchema } from "@shared/schema";
+import { GetNokCategory, GetProductionCounter, CreateUpdateProductionCounter, createUpdateProductionCounterSchema } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
 import { Minus, Plus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 interface ProductionCounterFormProps {
   reportId: string;
+  userName: string;
   reportArea: string;
   initialData?: GetProductionCounter;
   onSuccess: () => void;
 }
 
-const formSchema = getProductionCounterSchema;
-
-export default function ProductionCounterForm({ reportId, reportArea, initialData, onSuccess }: ProductionCounterFormProps) {
+export default function ProductionCounterForm({ reportId, userName, reportArea, initialData, onSuccess }: ProductionCounterFormProps) {
   const { toast } = useToast();
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: initialData,
+  const form = useForm<CreateUpdateProductionCounter>({
+    resolver: zodResolver(createUpdateProductionCounterSchema),
+    defaultValues: {
+      hour: initialData?.hour ?? 1,
+      pn: initialData?.pn ?? "",
+      okCount: initialData?.okCount ?? 0,
+      nokCount: initialData?.nokCount ?? 0,
+      nokA: initialData?.nokA ?? 0,
+      nokB: initialData?.nokB ?? 0,
+      nokC: initialData?.nokC ?? 0,
+      nokD: initialData?.nokD ?? 0,
+      nokE: initialData?.nokE ?? 0,
+      nokF: initialData?.nokF ?? 0,
+      nokG: initialData?.nokG ?? 0,
+      nokH: initialData?.nokH ?? 0,
+      nokI: initialData?.nokI ?? 0,
+      nokJ: initialData?.nokJ ?? 0,
+      nokK: initialData?.nokK ?? 0,
+      nokL: initialData?.nokL ?? 0,
+      nokM: initialData?.nokM ?? 0,
+      nokN: initialData?.nokN ?? 0,
+      nokO: initialData?.nokO ?? 0,
+      nokP: initialData?.nokP ?? 0,
+      nokQ: initialData?.nokQ ?? 0,
+      nokR: initialData?.nokR ?? 0,
+      nokS: initialData?.nokS ?? 0,
+      nokT: initialData?.nokT ?? 0,
+      nokX: initialData?.nokX ?? 0,
+      nokY: initialData?.nokY ?? 0,
+      nokZ: initialData?.nokZ ?? 0,
+      nokAa: initialData?.nokAa ?? 0,
+      nokBb: initialData?.nokBb ?? 0,
+      nokCc: initialData?.nokCc ?? 0,
+      nokDd: initialData?.nokDd ?? 0,
+      nokEe: initialData?.nokEe ?? 0,
+      nokFf: initialData?.nokFf ?? 0,
+      nokGg: initialData?.nokGg ?? 0,
+      nokHh: initialData?.nokHh ?? 0,
+      nokIi: initialData?.nokIi ?? 0,
+      nokJj: initialData?.nokJj ?? 0,
+      nokKk: initialData?.nokKk ?? 0,
+      nokTaken: initialData?.nokTaken ?? 0,
+      productionTime: initialData?.productionTime ?? 0,
+      operators: initialData?.operators ?? 0,
+      operatorsIndirect: initialData?.operatorsIndirect ?? 0,
+      userName: userName,
+    },
   });
 
   const { data: nokCategories = [] } = useQuery<GetNokCategory[]>({
     queryKey: [`/api/nok-categories/${reportArea}`],
     queryFn: () => api.getNokCategories(reportArea),
+    enabled: !!reportArea,
+  });
+
+  const { data: pns = [], isLoading: isLoadingPns } = useQuery<string[]>({ 
+    queryKey: [`/api/ProductionReports/PNs?area=${reportArea}`],
+    queryFn: () => api.getPNs(reportArea),
     enabled: !!reportArea,
   });
 
@@ -46,7 +96,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
   };
 
   const createMutation = useMutation({
-    mutationFn: (data: z.infer<typeof formSchema>) => api.createProductionCounter(reportId, data as GetProductionCounter),
+    mutationFn: (data: CreateUpdateProductionCounter) => api.createProductionCounter(reportId, data),
     onSuccess,
     onError: (err: Error) => {
       toast({ title: "Failed to create counter", description: err.message, variant: "destructive" });
@@ -54,14 +104,22 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: z.infer<typeof formSchema>) => api.updateProductionCounter(reportId, initialData!.hour, data as GetProductionCounter),
+    mutationFn: (data: CreateUpdateProductionCounter) => api.updateProductionCounter(reportId, initialData!.id, data),
     onSuccess,
     onError: (err: Error) => {
       toast({ title: "Failed to update counter", description: err.message, variant: "destructive" });
     },
   });
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteProductionCounter(initialData!.id),
+    onSuccess,
+    onError: (err: Error) => {
+      toast({ title: "Failed to delete counter", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const onSubmit = (values: CreateUpdateProductionCounter) => {
     if (initialData) {
       updateMutation.mutate(values);
     } else {
@@ -84,7 +142,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
     field.onChange(value);
   };
 
-  const nokFields = Object.keys(getProductionCounterSchema.shape).filter(key => key.startsWith('nok') && key !== 'nokCount' && key !== 'nokTaken');
+  const nokFields = Object.keys(createUpdateProductionCounterSchema.shape).filter(key => key.startsWith('nok') && key !== 'nokCount' && key !== 'nokTaken');
 
   const renderNumericInput = (field: any, max?: number) => (
     <FormControl>
@@ -150,9 +208,20 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           render={({ field }) => (
             <FormItem>
               <FormLabel>PN</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder="Part Number" />
-              </FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select a PN"} />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {pns.map((pn, index) => (
+                    <SelectItem key={index} value={pn}>
+                      {pn}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}

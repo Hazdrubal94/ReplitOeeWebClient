@@ -1,5 +1,5 @@
 import React from "react";
-import photoUrl from "@/assets/Bwi_logo.png";
+import photoUrl from "@/assets/BWI_MES_logo.png";
 
 type Props = {
     alt?: string;
@@ -8,7 +8,7 @@ type Props = {
     height?: number | string;
 };
 
-const BwiLogo: React.FC<Props> = ({ alt = "Photo", className, width, height }) => {
+const BwiMesLogo: React.FC<Props> = ({ alt = "Photo", className, width, height }) => {
     return (
         <img
             src={photoUrl}
@@ -22,4 +22,4 @@ const BwiLogo: React.FC<Props> = ({ alt = "Photo", className, width, height }) =
     );
 };
 
-export default BwiLogo;
+export default BwiMesLogo;

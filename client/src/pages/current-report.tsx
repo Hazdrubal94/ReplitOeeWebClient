@@ -54,6 +54,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const [selectedEvent, setSelectedEvent] = useState<GetProductionEvent | undefined>(undefined);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<GetProductionEvent | null>(null);
+  const [counterToDelete, setCounterToDelete] = useState<GetProductionCounter | null>(null);
   const reportId = params?.reportId;
 
   useEffect(() => {
@@ -109,6 +110,18 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     queryKey: [`/api/nok-categories/${report?.area}`],
     queryFn: () => api.getNokCategories(report!.area),
     enabled: !!report,
+  });
+
+  const deleteCounterMutation = useMutation({
+    mutationFn: (counterId: number) => api.deleteProductionCounter(counterId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Counters`] });
+      toast({ title: "Counter deleted" });
+      setIsDeleteAlertOpen(false);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to delete event", description: err.message, variant: "destructive" });
+    },
   });
 
   const deleteEventMutation = useMutation({
@@ -181,6 +194,11 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     setIsCounterFormOpen(true);
   };
 
+  const handleDeleteCounter = (counter: GetProductionCounter) => {
+    setCounterToDelete(counter);
+    setIsDeleteAlertOpen(true);
+  };
+
   const handleCounterFormClose = () => {
     setIsCounterFormOpen(false);
     setSelectedCounter(undefined);
@@ -196,19 +214,22 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     setIsEventFormOpen(true);
   };
 
-  const handleEventFormClose = () => {
-    setIsEventFormOpen(false);
-    setSelectedEvent(undefined);
-  };
-
   const handleDeleteEvent = (event: GetProductionEvent) => {
     setEventToDelete(event);
     setIsDeleteAlertOpen(true);
   };
 
+  const handleEventFormClose = () => {
+    setIsEventFormOpen(false);
+    setSelectedEvent(undefined);
+  };
+
   const confirmDelete = () => {
     if (eventToDelete) {
       deleteEventMutation.mutate(eventToDelete.id);
+    }
+    else if (counterToDelete) {
+      deleteCounterMutation.mutate(counterToDelete.id);
     }
   };
 
@@ -321,7 +342,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                         <TableRow className="bg-muted/40">
                           <TableHead className="w-10 sticky left-0 bg-muted/40 z-10"></TableHead>
                           <TableHead className="sticky left-12 bg-muted/40 z-10">Hour</TableHead>
-                          <TableHead className="sticky left-24 bg-muted/40 z-10">PN</TableHead>
+                          <TableHead>PN</TableHead>
                           <TableHead>OK Count</TableHead>
                           <TableHead>NOK Count</TableHead>
                           <TableHead>Operators</TableHead>
@@ -348,17 +369,18 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                 <TableCell className="sticky left-12 bg-background z-10 font-medium">
                                   {counter.hour}
                                 </TableCell>
-                                <TableCell className="sticky left-24 bg-background z-10">
-                                  {counter.pn}
-                                </TableCell>
+                                <TableCell>{counter.pn}</TableCell>
                                 <TableCell>{counter.okCount}</TableCell>
                                 <TableCell>{counter.nokCount}</TableCell>
                                 <TableCell>{counter.operators}</TableCell>
                                 <TableCell>{counter.operatorsIndirect}</TableCell>
                                 <TableCell>{counter.productionTime}</TableCell>
                                 <TableCell className="text-right">
-                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditCounter(counter); }}>
+                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditCounter(counter); }} disabled={reportLoading}>
                                     <Pen className="w-4 h-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteCounter(counter); }} disabled={reportLoading}>
+                                    <Trash className="w-4 h-4" />
                                   </Button>
                                 </TableCell>
                               </TableRow>
@@ -501,8 +523,9 @@ export default function CurrentReport({ params }: CurrentReportProps) {
           {report && (
             <ProductionCounterForm
               reportId={reportId!}
-              reportArea={report.area}
               initialData={selectedCounter}
+              userName={report.userName}
+              reportArea={report.area}
               onSuccess={() => {
                 handleCounterFormClose();
                 queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Counters`] });
@@ -534,15 +557,15 @@ export default function CurrentReport({ params }: CurrentReportProps) {
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete this event?</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure you want to delete this element?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the event.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={deleteEventMutation.isPending}>
-              {deleteEventMutation.isPending ? "Deleting..." : "Delete"}
+            <AlertDialogAction onClick={confirmDelete} disabled={deleteEventMutation.isPending || deleteCounterMutation.isPending}>
+              {deleteEventMutation.isPending || deleteCounterMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
