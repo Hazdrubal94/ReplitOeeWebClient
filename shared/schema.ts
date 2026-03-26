@@ -117,6 +117,8 @@ export const getProductionEventSchema = z.object({
   startTime: z.string(),
   stopTime: z.string(),
   category: z.number(),
+  subcategory: z.number().nullable(),
+  pn: z.string(),
   machineNr: z.number(),
   description: z.string(),
 });
@@ -127,6 +129,8 @@ export const createUpdateProductionEventSchema = z.object({
   startTime: z.string(),
   stopTime: z.string(),
   category: z.coerce.number(),
+  subcategory: z.coerce.number().nullable(),
+  pn: z.string(),
   machineNr: z.coerce.number(),
   description: z.string(),
 });
@@ -134,7 +138,13 @@ export const createUpdateProductionEventSchema = z.object({
 export const getCategoryDescriptionSchema = z.object({
   id: z.number(),
   description: z.string(),
-  desciptionEn: z.string(),
+  descriptionEn: z.string(),
+});
+
+export const getSubcategoryDescriptionSchema = z.object({
+  id: z.number(),
+  descriptionEn: z.string(),
+  descriptionSp: z.string(),
 });
 
 export const getMachineDescriptionSchema = z.object({
@@ -159,6 +169,9 @@ export type CreateUpdateProductionCounter = z.infer<typeof createUpdateProductio
 export type GetProductionEvent = z.infer<typeof getProductionEventSchema>;
 export type CreateUpdateProductionEvent = z.infer<typeof createUpdateProductionEventSchema>;
 export type GetNokCategory = z.infer<typeof getNokCategorySchema>;
+export type GetCategoryDescription = z.infer<typeof getCategoryDescriptionSchema>;
+export type GetSubcategoryDescription = z.infer<typeof getSubcategoryDescriptionSchema>;
+export type GetMachineDescription = z.infer<typeof getMachineDescriptionSchema>;
 
 export const users = {} as any;
 export const insertUserSchema = z.object({ username: z.string(), password: z.string() });

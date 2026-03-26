@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useCurrentReport } from "@/lib/current-report-context";
 import { useToast } from "@/hooks/use-toast";
-import type { GetProductionReport, GetProductionCounter, GetProductionEvent, getCategoryDescriptionSchema, getMachineDescriptionSchema, GetNokCategory } from "@shared/schema";
+import type { GetProductionReport, GetProductionCounter, GetProductionEvent, GetCategoryDescription, GetSubcategoryDescription, GetMachineDescription, GetNokCategory } from "@shared/schema";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,9 +37,6 @@ import {
 interface CurrentReportProps {
   params: { reportId: string };
 }
-
-type CategoryDescription = z.infer<typeof getCategoryDescriptionSchema>;
-type MachineDescription = z.infer<typeof getMachineDescriptionSchema>;
 
 export default function CurrentReport({ params }: CurrentReportProps) {
   const [, navigate] = useLocation();
@@ -94,13 +91,19 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     retry: false,
   });
 
-  const { data: categoryDescriptions = [] } = useQuery<CategoryDescription[]>({
+  const { data: categoryDescriptions = [] } = useQuery<GetCategoryDescription[]>({
     queryKey: ["/api/category-descriptions"],
     queryFn: () => api.getCategoryDescriptions(),
     enabled: !!reportId,
   });
 
-  const { data: machineDescriptions = [] } = useQuery<MachineDescription[]>({
+  const { data: subcategoryDescriptions = [] } = useQuery<GetSubcategoryDescription[]>({
+    queryKey: ["/api/subcategory-descriptions"],
+    queryFn: () => api.getSubcategories(),
+    enabled: !!reportId,
+  });
+
+  const { data: machineDescriptions = [] } = useQuery<GetMachineDescription[]>({
     queryKey: [`/api/machine-descriptions/${report?.area}`],
     queryFn: () => api.getMachineDescriptions(report!.area),
     enabled: !!report,
@@ -118,6 +121,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
       queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Counters`] });
       toast({ title: "Counter deleted" });
       setIsDeleteAlertOpen(false);
+      setCounterToDelete(null);
     },
     onError: (err: Error) => {
       toast({ title: "Failed to delete event", description: err.message, variant: "destructive" });
@@ -130,6 +134,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
       queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Events`] });
       toast({ title: "Event deleted" });
       setIsDeleteAlertOpen(false);
+      setEventToDelete(null);
     },
     onError: (err: Error) => {
       toast({ title: "Failed to delete event", description: err.message, variant: "destructive" });
@@ -142,6 +147,11 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const getCategoryDesc = (id: number) => {
     const category = categoryDescriptions.find(c => c.id === id);
     return category ? category.description : id;
+  }
+
+  const getSubcategoryDesc = (id: number) => {
+    const subcategory = subcategoryDescriptions.find(s => s.id === id);
+    return subcategory ? subcategory.descriptionEn : id;
   }
 
   const getMachineDesc = (id: number) => {
@@ -437,7 +447,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
               <CardContent>
                 {eventsLoading ? (
                   <div className="space-y-2">
-                    {Array.from({ length: 6 }).map((_, i) => (
+                    {Array.from({ length: 7 }).map((_, i) => (
                       <Skeleton key={i} className="h-12 w-full rounded-md" />
                     ))}
                   </div>
@@ -453,6 +463,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                           <TableHead className="w-10"></TableHead>
                           <TableHead>Start Time</TableHead>
                           <TableHead>Stop Time</TableHead>
+                          <TableHead>PN</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead>Machine</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
@@ -460,6 +471,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                       </TableHeader>
                       <TableBody>
                         {events.map((event, idx) => {
+                          const hasSubcategory = !!event.subcategory;
                           const hasDescription = !!event.description?.trim();
 
                           return (
@@ -467,12 +479,12 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                               <TableRow
                                 key={`event-${idx}-main`}
                                 className={"cursor-pointer hover:bg-muted/50"}
-                                onClick={hasDescription ? () => toggleEventRowExpanded(idx) : undefined}
-                                aria-disabled={!hasDescription}
-                                title={hasDescription ? "Show description" : "No description available"}
+                                onClick={hasDescription || hasSubcategory ? () => toggleEventRowExpanded(idx) : undefined}
+                                aria-disabled={!hasDescription && !hasSubcategory}
+                                title={hasDescription || hasSubcategory ? "Show details" : "No details available"}
                               >
                                 <TableCell className="w-10 text-center">
-                                  {hasDescription ? (
+                                  {hasDescription || hasSubcategory ? (
                                     expandedEventRows.has(idx) ? (
                                       <ChevronUp className="w-4 h-4 inline" />
                                     ) : (
@@ -482,6 +494,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                 </TableCell>
                                 <TableCell>{event.startTime.slice(0,5)}</TableCell>
                                 <TableCell>{event.stopTime.slice(0,5)}</TableCell>
+                                <TableCell>{event.pn}</TableCell>
                                 <TableCell>{getCategoryDesc(event.category)}</TableCell>
                                 <TableCell>{getMachineDesc(event.machineNr)}</TableCell>
                                 <TableCell className="text-right">
@@ -493,9 +506,15 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                   </Button>
                                 </TableCell>
                               </TableRow>
-                              {hasDescription && expandedEventRows.has(idx) && (
+                              {(hasDescription || hasSubcategory) && expandedEventRows.has(idx) && (
                                 <TableRow key={`event-${idx}-details`} className="bg-muted/20 hover:bg-muted/30">
-                                  <TableCell colSpan={6} className="px-6 py-3">
+                                  <TableCell colSpan={3} className="px-6 py-3">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                                      Subcategory
+                                    </p>
+                                    <p className="text-sm text-foreground">{getSubcategoryDesc(event.subcategory) ?? "—"}</p>
+                                  </TableCell>
+                                  <TableCell colSpan={4} className="px-6 py-3">
                                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
                                       Description
                                     </p>
@@ -542,8 +561,9 @@ export default function CurrentReport({ params }: CurrentReportProps) {
             {report && (
               <ProductionEventForm
                 reportId={reportId!}
-                initialData={selectedEvent}
                 userName={report.userName}
+                reportArea={report.area}
+                initialData={selectedEvent}
                 categoryDescriptions={categoryDescriptions}
                 machineDescriptions={machineDescriptions}
                 onSuccess={() => {

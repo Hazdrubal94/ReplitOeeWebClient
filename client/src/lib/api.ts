@@ -1,5 +1,16 @@
-import type { GetProductionReport, CreateProductionReport, GetProductionCounter, CreateUpdateProductionCounter, GetProductionEvent, CreateUpdateProductionEvent, GetNokCategory, getCategoryDescriptionSchema, getMachineDescriptionSchema } from "@shared/schema";
-import { z } from "zod";
+import type
+{
+    GetProductionReport,
+    CreateProductionReport,
+    GetProductionCounter,
+    CreateUpdateProductionCounter,
+    GetProductionEvent,
+    CreateUpdateProductionEvent,
+    GetNokCategory,
+    GetCategoryDescription,
+    GetSubcategoryDescription,
+    GetMachineDescription
+} from "@shared/schema";
 
 const BASE_URL = "https://localhost:8443";
 
@@ -19,9 +30,6 @@ async function handleResponse<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   return res.json();
 }
-
-type CategoryDescription = z.infer<typeof getCategoryDescriptionSchema>;
-type MachineDescription = z.infer<typeof getMachineDescriptionSchema>;
 
 export const api = {
   getAllProductionReports: (): Promise<GetProductionReport[]> =>
@@ -108,11 +116,20 @@ export const api = {
       method: "DELETE",
     }).then(r => handleResponse<void>(r)),
 
-  getCategoryDescriptions: (): Promise<CategoryDescription[]> =>
-    fetch(`${BASE_URL}/api/ProductionReports/Categories`).then(r => handleResponse<CategoryDescription[]>(r)),
+  getCategoryDescriptions: (): Promise<GetCategoryDescription[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/Categories`).then(r => handleResponse<GetCategoryDescription[]>(r)),
 
-  getMachineDescriptions: (area: string): Promise<MachineDescription[]> =>
-    fetch(`${BASE_URL}/api/ProductionReports/Machines?area=${area}`).then(r => handleResponse<MachineDescription[]>(r)),
+  getSubcategoriesForCategoryId: (id: number): Promise<GetSubcategoryDescription[] | null> =>
+    fetch(`${BASE_URL}/api/ProductionReports/Categories/${id}/Subcategories`).then(r => handleResponse<GetSubcategoryDescription[] | null>(r)),
+
+  getSubcategories: (): Promise<GetSubcategoryDescription[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/Subcategories`).then(r => handleResponse<GetSubcategoryDescription[]>(r)),
+
+  getSubcategoryById: (id: number): Promise<GetSubcategoryDescription> =>
+    fetch(`${BASE_URL}/api/ProductionReports/Subcategories/${id}`).then(r => handleResponse<GetSubcategoryDescription>(r)),
+
+  getMachineDescriptions: (area: string): Promise<GetMachineDescription[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/Machines?area=${area}`).then(r => handleResponse<GetMachineDescription[]>(r)),
 
   getNokCategories: (area: string): Promise<GetNokCategory[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/NokCategories?area=${area}`).then(r => handleResponse<GetNokCategory[]>(r)),
