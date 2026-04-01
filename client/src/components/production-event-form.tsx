@@ -17,6 +17,7 @@ import { GetProductionEvent, CreateUpdateProductionEvent, createUpdateProduction
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 interface ProductionEventFormProps {
   reportId: string;
@@ -38,6 +39,7 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
       category: initialData?.category ?? 0,
       subcategory: initialData?.subcategory,
       pn: initialData?.pn ?? "",
+      isAvailabilityLoss: initialData?.isAvailabilityLoss,
       machineNr: initialData?.machineNr ?? 0,
       description: initialData?.description ?? "",
       userName: userName,
@@ -46,7 +48,7 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
 
   const categoryId = form.watch("category");
 
-  const { data: subcategories, isLoading: isLoadingSubcategories } = useQuery<GetSubcategoryDescription[]>({
+  const { data: subcategories, isLoading: isLoadingSubcategories } = useQuery<GetSubcategoryDescription[] | null>({
     queryKey: [`/api/ProductionReports/Categories/${categoryId}/Subcategories`],
     queryFn: () => api.getSubcategoriesForCategoryId(categoryId),
     enabled: !!categoryId && categoryId !== 0,
@@ -60,7 +62,10 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
 
   const createMutation = useMutation({
     mutationFn: (data: CreateUpdateProductionEvent) => api.createProductionEvent(reportId, data),
-    onSuccess,
+    onSuccess: () => {
+      onSuccess();
+      toast({ title: "Production Event Created", description: "The production event has been created successfully." });
+    },
     onError: (err: Error) => {
       toast({ title: "Failed to create event", description: err.message, variant: "destructive" });
     },
@@ -68,7 +73,10 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
 
   const updateMutation = useMutation({
     mutationFn: (data: CreateUpdateProductionEvent) => api.updateProductionEvent(reportId, initialData!.id, data),
-    onSuccess, 
+    onSuccess: () => {
+      onSuccess();
+      toast({ title: "Production Event Updated", description: "The production event has been updated successfully." });
+    },
     onError: (err: Error) => {
       toast({ title: "Failed to update event", description: err.message, variant: "destructive" });
     },
@@ -238,9 +246,26 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
             )}
           />
         </div>
-        <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-          {initialData ? 'Update Event' : 'Create Event'}
-        </Button>
+        <div className="flex justify-between items-center">
+          <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+              {initialData ? 'Update Event' : 'Create Event'}
+          </Button>
+          <FormField
+            control={form.control}
+            name="isAvailabilityLoss"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-x-2">
+                <FormLabel>Availability Loss</FormLabel>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        </div>
       </form>
     </Form>
   );

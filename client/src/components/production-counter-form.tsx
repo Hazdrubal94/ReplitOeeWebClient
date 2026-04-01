@@ -97,7 +97,10 @@ export default function ProductionCounterForm({ reportId, userName, reportArea, 
 
   const createMutation = useMutation({
     mutationFn: (data: CreateUpdateProductionCounter) => api.createProductionCounter(reportId, data),
-    onSuccess,    
+    onSuccess: () => {
+      onSuccess();
+      toast({ title: "Production Counter Created", description: "The production counter has been created successfully." });
+    },
     onError: (err: Error) => {
       toast({ title: "Failed to create counter", description: err.message, variant: "destructive" });
     },
@@ -105,7 +108,10 @@ export default function ProductionCounterForm({ reportId, userName, reportArea, 
 
   const updateMutation = useMutation({
     mutationFn: (data: CreateUpdateProductionCounter) => api.updateProductionCounter(reportId, initialData!.id, data),
-    onSuccess,
+    onSuccess: () => {
+      onSuccess();
+      toast({ title: "Production Counter Updated", description: "The production counter has been updated successfully." });
+    },
     onError: (err: Error) => {
       toast({ title: "Failed to update counter", description: err.message, variant: "destructive" });
     },

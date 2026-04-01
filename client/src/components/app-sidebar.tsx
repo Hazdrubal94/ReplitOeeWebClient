@@ -26,11 +26,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="px-4 py-5">
-        <div>
-          <strong className="text-xl font-xl">BWI MES</strong>
-        </div>
-      </SidebarHeader>
+    
       {reportId && (
           <>
             <SidebarSeparator />

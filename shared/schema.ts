@@ -19,6 +19,12 @@ export const createProductionReportSchema = z.object({
   openDate: z.string().default(() => new Date().toISOString())
 });
 
+export const getAreaDescriptionSchema = z.object({
+    id: z.number(),
+    area: z.string(),
+    description: z.string()
+});
+
 export const getProductionCounterSchema = z.object({
   id: z.number(),
   hour: z.number(),
@@ -119,6 +125,7 @@ export const getProductionEventSchema = z.object({
   category: z.number(),
   subcategory: z.number().nullable(),
   pn: z.string(),
+  isAvailabilityLoss: z.boolean(),
   machineNr: z.number(),
   description: z.string(),
 });
@@ -131,6 +138,7 @@ export const createUpdateProductionEventSchema = z.object({
   category: z.coerce.number(),
   subcategory: z.coerce.number().nullable(),
   pn: z.string(),
+  isAvailabilityLoss: z.boolean(),
   machineNr: z.coerce.number(),
   description: z.string(),
 });
@@ -164,6 +172,7 @@ export const getNokCategorySchema = z.object({
 
 export type GetProductionReport = z.infer<typeof getProductionReportSchema>;
 export type CreateProductionReport = z.infer<typeof createProductionReportSchema>;
+export type GetAreaDescription = z.infer<typeof getAreaDescriptionSchema>;
 export type GetProductionCounter = z.infer<typeof getProductionCounterSchema>;
 export type CreateUpdateProductionCounter = z.infer<typeof createUpdateProductionCounterSchema>;
 export type GetProductionEvent = z.infer<typeof getProductionEventSchema>;

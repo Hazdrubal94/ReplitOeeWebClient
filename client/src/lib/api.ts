@@ -2,6 +2,7 @@ import type
 {
     GetProductionReport,
     CreateProductionReport,
+    GetAreaDescription,
     GetProductionCounter,
     CreateUpdateProductionCounter,
     GetProductionEvent,
@@ -38,8 +39,18 @@ export const api = {
   getProductionReportsByPage: (pageNumber: number, pageSize: number): Promise<GetProductionReport[]> =>
     fetch(`${BASE_URL}/api/ProductionReports?pageNumber=${pageNumber}&pageSize=${pageSize}`).then(r => handleResponse<GetProductionReport[]>(r)),
 
-  getProductionReport: (id: string): Promise<GetProductionReport> =>
+  getProductionReportById: (id: string): Promise<GetProductionReport> =>
     fetch(`${BASE_URL}/api/ProductionReports/${id}`).then(r => handleResponse<GetProductionReport>(r)),
+
+  createProductionReport: (report: CreateProductionReport): Promise<GetProductionReport> =>
+    fetch(`${BASE_URL}/api/ProductionReports`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(report),
+    }).then(r => handleResponse<GetProductionReport>(r)),
+
+  getAreaDescriptions: (): Promise<GetAreaDescription[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/Areas`).then(r => handleResponse<GetAreaDescription[]>(r)),
 
   openProductionReport: (id: string): Promise<GetProductionReport> =>
     fetch(`${BASE_URL}/api/ProductionReports/${id}/Open`, {
@@ -94,25 +105,6 @@ export const api = {
 
   deleteProductionEvent: (id: number): Promise<void> =>
     fetch(`${BASE_URL}/api/ProductionReports/Events/${id}`, {
-      method: "DELETE",
-    }).then(r => handleResponse<void>(r)),
-
-  createProductionReport: (report: CreateProductionReport): Promise<GetProductionReport> =>
-    fetch(`${BASE_URL}/api/ProductionReports`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(report),
-    }).then(r => handleResponse<GetProductionReport>(r)),
-
-  updateProductionReport: (id: string, report: CreateProductionReport): Promise<GetProductionReport> =>
-    fetch(`${BASE_URL}/api/ProductionReports/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(report),
-    }).then(r => handleResponse<GetProductionReport>(r)),
-
-  deleteProductionReport: (id: string): Promise<void> =>
-    fetch(`${BASE_URL}/api/ProductionReports/${id}`, {
       method: "DELETE",
     }).then(r => handleResponse<void>(r)),
 
