@@ -5,6 +5,8 @@ import type
     GetAreaDescription,
     GetProductionCounter,
     CreateUpdateProductionCounter,
+    GetProductionTime,
+    CreateUpdateProductionTime,
     GetProductionEvent,
     CreateUpdateProductionEvent,
     GetNokCategory,
@@ -16,7 +18,11 @@ import type
 const BASE_URL = "https://localhost:8443";
 
 async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
+    if (res.status === 409) {
+        const errorMessage = await res.text();
+        throw new Error(errorMessage);
+    }
+    else if (!res.ok) {
     let message = `HTTP ${res.status}`;
     try {
       const body = await res.json();
@@ -67,22 +73,44 @@ export const api = {
   getProductionCounters: (reportId: string): Promise<GetProductionCounter[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Counters`).then(r => handleResponse<GetProductionCounter[]>(r)),
 
-  createProductionCounter: (reportId: string, event: CreateUpdateProductionCounter): Promise<GetProductionCounter> =>
+  createProductionCounter: (reportId: string, counter: CreateUpdateProductionCounter): Promise<GetProductionCounter> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Counters`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(event),
+        body: JSON.stringify(counter),
     }).then(r => handleResponse<GetProductionCounter>(r)),
 
-  updateProductionCounter: (reportId: string, id: number, event: CreateUpdateProductionCounter): Promise<GetProductionCounter> =>
+  updateProductionCounter: (reportId: string, id: number, counter: CreateUpdateProductionCounter): Promise<GetProductionCounter> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Counters/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(event),
+        body: JSON.stringify(counter),
     }).then(r => handleResponse<GetProductionCounter>(r)),
 
   deleteProductionCounter: (id: number): Promise<void> =>
     fetch(`${BASE_URL}/api/ProductionReports/Counters/${id}`, {
+      method: "DELETE",
+    }).then(r => handleResponse<void>(r)),
+
+  getProductionTimes: (reportId: string): Promise<GetProductionTime[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/ProductionTimes`).then(r => handleResponse<GetProductionTime[]>(r)),
+
+  createProductionTime: (reportId: string, counterRow: CreateUpdateProductionTime): Promise<GetProductionTime> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/ProductionTimes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(counterRow),
+    }).then(r => handleResponse<GetProductionTime>(r)),
+
+  updateProductionTime: (reportId: string, id: number, counterRow: CreateUpdateProductionCounter): Promise<GetProductionTime> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/ProductionTimes/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(counterRow),
+    }).then(r => handleResponse<GetProductionTime>(r)),
+
+  deleteProductionTime: (id: number): Promise<void> =>
+    fetch(`${BASE_URL}/api/ProductionReports/ProductionTimes/${id}`, {
       method: "DELETE",
     }).then(r => handleResponse<void>(r)),
 
