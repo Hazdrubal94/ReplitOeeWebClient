@@ -20,9 +20,9 @@ export const createProductionReportSchema = z.object({
 });
 
 export const getAreaDescriptionSchema = z.object({
-    id: z.number(),
-    area: z.string(),
-    description: z.string()
+  id: z.number(),
+  area: z.string(),
+  description: z.string()
 });
 
 export const getProductionCounterSchema = z.object({
@@ -119,16 +119,16 @@ export const createUpdateProductionCounterSchema = z.object({
 });
 
 export const errorCodeSchema = z.object({
-    code: z.string(),
-    count: z.number()
+  code: z.number(),
+  count: z.number()
 });
 
 export const codingSchema = z.object({
-    coding: z.string(),
+    name: z.string(),
     errorCodes: z.array(errorCodeSchema)
 });
 
-export const getProductionTimeSchema = z.object({
+export const getCounterRowProductionTimeSchema = z.object({
   id: z.number(),
   idReport: z.string(),
   hour: z.number(),
@@ -139,13 +139,13 @@ export const getProductionTimeSchema = z.object({
   codings: z.array(codingSchema)
 });
 
-export const createUpdateProductionTimeSchema = z.object({
-    hour: z.number(),
-    sequence: z.number(),
-    pn: z.string(),
-    fert: z.string(),
-    productionTime: z.number(),
-    codings: z.array(codingSchema)
+export const createUpdateProductionTimeAndCounterRowsSchema = z.object({
+  hour: z.number(),
+  sequence: z.number(),
+  pn: z.string(),
+  fert: z.string(),
+  productionTime: z.number(),
+  codings: z.array(codingSchema)
 });
 
 export const getProductionEventSchema = z.object({
@@ -205,8 +205,8 @@ export type CreateProductionReport = z.infer<typeof createProductionReportSchema
 export type GetAreaDescription = z.infer<typeof getAreaDescriptionSchema>;
 export type GetProductionCounter = z.infer<typeof getProductionCounterSchema>;
 export type CreateUpdateProductionCounter = z.infer<typeof createUpdateProductionCounterSchema>;
-export type GetProductionTime = z.infer<typeof getProductionTimeSchema>;
-export type CreateUpdateProductionTime = z.infer<typeof createUpdateProductionTimeSchema>;
+export type GetCounterRowProductionTime = z.infer<typeof getCounterRowProductionTimeSchema>;
+export type CreateUpdateProductionTimeAndCounterRows = z.infer<typeof createUpdateProductionTimeAndCounterRowsSchema>;
 export type GetProductionEvent = z.infer<typeof getProductionEventSchema>;
 export type CreateUpdateProductionEvent = z.infer<typeof createUpdateProductionEventSchema>;
 export type GetNokCategory = z.infer<typeof getNokCategorySchema>;

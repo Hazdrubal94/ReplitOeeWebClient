@@ -5,8 +5,8 @@ import type
     GetAreaDescription,
     GetProductionCounter,
     CreateUpdateProductionCounter,
-    GetProductionTime,
-    CreateUpdateProductionTime,
+    GetCounterRowProductionTime,
+    CreateUpdateProductionTimeAndCounterRows,
     GetProductionEvent,
     CreateUpdateProductionEvent,
     GetNokCategory,
@@ -92,24 +92,24 @@ export const api = {
       method: "DELETE",
     }).then(r => handleResponse<void>(r)),
 
-  getProductionTimes: (reportId: string): Promise<GetProductionTime[]> =>
-    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/ProductionTimes`).then(r => handleResponse<GetProductionTime[]>(r)),
+  getProductionTimeAndCounterRows: (reportId: string): Promise<GetCounterRowProductionTime[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/ProductionTimes`).then(r => handleResponse<GetCounterRowProductionTime[]>(r)),
 
-  createProductionTime: (reportId: string, counterRow: CreateUpdateProductionTime): Promise<GetProductionTime> =>
+  createProductionTimeAndCounterRows: (reportId: string, productionTimeAndCounterRows: CreateUpdateProductionTimeAndCounterRows): Promise<GetCounterRowProductionTime> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/ProductionTimes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(counterRow),
-    }).then(r => handleResponse<GetProductionTime>(r)),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(productionTimeAndCounterRows),
+    }).then(r => handleResponse<GetCounterRowProductionTime>(r)),
 
-  updateProductionTime: (reportId: string, id: number, counterRow: CreateUpdateProductionCounter): Promise<GetProductionTime> =>
+  updateProductionTimeAndCounterRows: (reportId: string, id: number, productionTimeAndCounterRows: CreateUpdateProductionTimeAndCounterRows): Promise<GetCounterRowProductionTime> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/ProductionTimes/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(counterRow),
-    }).then(r => handleResponse<GetProductionTime>(r)),
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(productionTimeAndCounterRows),
+    }).then(r => handleResponse<GetCounterRowProductionTime>(r)),
 
-  deleteProductionTime: (id: number): Promise<void> =>
+  deleteProductionTimeAndCounterRows: (id: number): Promise<void> =>
     fetch(`${BASE_URL}/api/ProductionReports/ProductionTimes/${id}`, {
       method: "DELETE",
     }).then(r => handleResponse<void>(r)),

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useCurrentReport } from "@/lib/current-report-context";
 import { useToast } from "@/hooks/use-toast";
-import type { GetProductionReport, GetProductionCounter, GetProductionEvent, GetCategoryDescription, GetSubcategoryDescription, GetMachineDescription, GetNokCategory } from "@shared/schema";
+import type { GetProductionReport, GetCounterRowProductionTime, GetProductionEvent, GetCategoryDescription, GetSubcategoryDescription, GetMachineDescription, GetNokCategory } from "@shared/schema";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -61,12 +61,12 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const [expandedCounterRows, setExpandedCounterRows] = useState<Set<number>>(new Set());
   const [expandedEventRows, setExpandedEventRows] = useState<Set<number>>(new Set());
   const [isCounterFormOpen, setIsCounterFormOpen] = useState(false);
-  const [selectedCounter, setSelectedCounter] = useState<GetProductionCounter | undefined>(undefined);
+  const [selectedCounterRow, setSelectedCounterRow] = useState<GetCounterRowProductionTime | undefined>(undefined);
   const [isEventFormOpen, setIsEventFormOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<GetProductionEvent | undefined>(undefined);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<GetProductionEvent | null>(null);
-  const [counterToDelete, setCounterToDelete] = useState<GetProductionCounter | null>(null);
+  const [counterToDelete, setCounterToDelete] = useState<GetCounterRowProductionTime | null>(null);
   const reportId = params?.reportId;
 
   useEffect(() => {
@@ -92,9 +92,9 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     retry: false,
   });
 
-  const { data: counters = [], isLoading: countersLoading } = useQuery<GetProductionCounter[]>({
-    queryKey: [`/api/reports/${reportId}/Counters`],
-    queryFn: () => api.getProductionCounters(reportId!),
+  const { data: counterRowProductionTimes = [], isLoading: counterRowsLoading } = useQuery<GetCounterRowProductionTime[]>({
+    queryKey: [`/api/reports/${reportId}/ProductionTimes`],
+    queryFn: () => api.getProductionTimeAndCounterRows(reportId!),
     enabled: !!reportId,
     retry: false,
   });
@@ -130,8 +130,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     enabled: !!report,
   });
 
-  const deleteCounterMutation = useMutation({
-    mutationFn: (counterId: number) => api.deleteProductionCounter(counterId),
+  const deleteCounterRowMutation = useMutation({
+    mutationFn: (counterId: number) => api.deleteProductionTimeAndCounterRows(counterId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Counters`] });
       toast({ title: "Counter deleted" });
@@ -156,7 +156,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     },
   });
 
-  const isLoading = reportLoading || countersLoading || eventsLoading;
+  const isLoading = reportLoading || counterRowsLoading || eventsLoading;
   const isError = reportError;
 
   const getCategoryDesc = (id: number) => {
@@ -179,16 +179,6 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     return category ? category.descriptionEn : null;
   }
 
-  const getNokColumns = () => {
-    if (counters.length === 0) return [];
-    const firstCounter = counters[0];
-    const nokKeys = Object.keys(firstCounter)
-      .filter(key => key.startsWith('nok') && key !== 'nokCount' && key != 'nokTaken');
-    return nokKeys as (keyof GetProductionCounter)[];
-  };
-
-  const allNokColumns = getNokColumns();
-
   const toggleCounterRowExpanded = (idx: number) => {
     const newExpanded = new Set(expandedCounterRows);
     if (newExpanded.has(idx)) newExpanded.delete(idx);
@@ -203,10 +193,10 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     setExpandedEventRows(newExpanded);
   };
 
-  const handleAddCounter = () => { setSelectedCounter(undefined); setIsCounterFormOpen(true); };
-  const handleEditCounter = (counter: GetProductionCounter) => { setSelectedCounter(counter); setIsCounterFormOpen(true); };
-  const handleDeleteCounter = (counter: GetProductionCounter) => { setCounterToDelete(counter); setIsDeleteAlertOpen(true); };
-  const handleCounterFormClose = () => { setIsCounterFormOpen(false); setSelectedCounter(undefined); };
+  const handleAddCounter = () => { setSelectedCounterRow(undefined); setIsCounterFormOpen(true); };
+  const handleEditCounter = (counterRow: GetCounterRowProductionTime) => { setSelectedCounterRow(counterRow); setIsCounterFormOpen(true); };
+  const handleDeleteCounter = (counterRow: GetCounterRowProductionTime) => { setCounterToDelete(counterRow); setIsDeleteAlertOpen(true); };
+  const handleCounterFormClose = () => { setIsCounterFormOpen(false); setSelectedCounterRow(undefined); };
 
   const handleAddEvent = () => { setSelectedEvent(undefined); setIsEventFormOpen(true); };
   const handleEditEvent = (event: GetProductionEvent) => { setSelectedEvent(event); setIsEventFormOpen(true); };
@@ -215,15 +205,15 @@ export default function CurrentReport({ params }: CurrentReportProps) {
 
   const confirmDelete = () => {
     if (eventToDelete) deleteEventMutation.mutate(eventToDelete.id);
-    else if (counterToDelete) deleteCounterMutation.mutate(counterToDelete.id);
+    else if (counterToDelete) deleteCounterRowMutation.mutate(counterToDelete.id);
   };
 
-  const totalOkCount = counters.reduce((acc, counter) => acc + counter.okCount, 0);
-  const totalNokCount = counters.reduce((acc, counter) => acc + counter.nokCount, 0);
-  const distinctPnsCount = [...new Set(counters.map(c => c.pn))].length;
-  const averageOperators = counters.length > 0 ? (counters.reduce((acc, counter) => acc + counter.operators, 0) / counters.length) : 0;
-  const averageOperatorsIndirect = counters.length > 0 ? (counters.reduce((acc, counter) => acc + counter.operatorsIndirect, 0) / counters.length) : 0;
-  const sumProductionTime = counters.reduce((acc, counter) => acc + counter.productionTime, 0);
+  const totalOkCount = counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.codings.filter(c => c.name == 'OK').flatMap(c => c.errorCodes).reduce((subAcc, errorCode) => subAcc + errorCode.count, 0), 0);
+  const totalNokCount = counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.codings.filter(c => c.name != 'OK').flatMap(c => c.errorCodes).reduce((subAcc, errorCode) => subAcc + errorCode.count, 0), 0);
+  const distinctPnsCount = [...new Set(counterRowProductionTimes.map(c => c.pn))].length;
+  //const averageOperators = counterRows.length > 0 ? (counterRows.reduce((acc, counter) => acc + counter.operators, 0) / counterRows.length) : 0;
+  //const averageOperatorsIndirect = counterRows.length > 0 ? (counterRows.reduce((acc, counter) => acc + counter.operatorsIndirect, 0) / counterRows.length) : 0;
+  const sumProductionTime = counterRowProductionTimes.reduce((acc, counter) => acc + counter.productionTime, 0);
 
   const totalEventsDuration = events.reduce((acc, event) => acc + calculateDuration(event.startTime, event.stopTime), 0);
   const changeoversNumber = events.filter(event => event.category === 16).length;
@@ -265,14 +255,15 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                 <CardTitle>Counters</CardTitle>
                 <Button onClick={handleAddCounter} size="sm"><Plus className="w-4 h-4 mr-2"/>Add</Button>
               </CardHeader>
-              <CardContent className="flex-1 min-h-0">
-                <ScrollArea className="border rounded-md h-full min-h-0">
+              <CardContent className="flex-1 flex flex-col min-h-0">
+                <ScrollArea className="border border-b-0 rounded-md rounded-b-none flex-1 min-h-0">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/40">
                           <TableHead className="w-10"></TableHead>
                           <TableHead className="px-2 text-center border-l border-dashed">Hour</TableHead>
                           <TableHead className="px-2 text-center border-l border-dashed">PN</TableHead>
+                          <TableHead className="px-2 text-center border-l border-dashed">FERT</TableHead>
                           <TableHead className="px-3 text-center border-l border-dashed">OK</TableHead>
                           <TableHead className="px-3 text-center border-l border-dashed">NOK</TableHead>
                           <TableHead className="px-1 text-center border-l border-dashed">Operators</TableHead>
@@ -282,10 +273,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                         </TableRow>
                       </TableHeader>
                       <TableBody className="border-b">
-                        {counters.map((counter, idx) => {
-                          const activeNoksForRow = allNokColumns.filter(
-                            col => (counter[col] as number) > 0
-                          );
+                        {counterRowProductionTimes.map((counterRowProductionTime, idx) => {
+                          const activeNokCodingsForRow = counterRowProductionTime.codings.filter(c => c.name != 'OK');
                           return (
                             <>
                               <TableRow key={`${idx}-main`} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleCounterRowExpanded(idx)}>
@@ -296,30 +285,27 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                     <ChevronDown className="w-4 h-4 inline" />
                                   )}
                                 </TableCell>
-                                <TableCell className="text-center font-bold border-l border-dashed">
-                                  {counter.hour}
-                                </TableCell>
-                                <TableCell className="text-center font-bold border-l border-dashed">
-                                  {counter.pn}
-                                </TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counter.okCount}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counter.nokCount}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counter.operators}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counter.operatorsIndirect}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counter.productionTime}</TableCell>
+                                <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.hour}</TableCell>
+                                <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.pn}</TableCell>
+                                <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.fert}</TableCell>
+                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name == 'OK').flatMap(c => c.errorCodes).reduce((acc, errorCode) => acc + errorCode.count, 0)}</TableCell>
+                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name != 'OK').flatMap(c => c.errorCodes).reduce((acc, errorCode) => acc + errorCode.count, 0)}</TableCell>
+                                <TableCell className="text-center border-l border-dashed">0</TableCell>
+                                <TableCell className="text-center border-l border-dashed">0</TableCell>
+                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.productionTime}</TableCell>
                                 <TableCell className="text-center border-l border-dashed">
-                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditCounter(counter); }}>
+                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditCounter(counterRowProductionTime); }}>
                                     <Pen className="w-4 h-4" />
                                   </Button>
-                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteCounter(counter); }} disabled={reportLoading}>
+                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteCounter(counterRowProductionTime); }} disabled={reportLoading}>
                                     <Trash className="w-4 h-4" />
                                   </Button>
                                 </TableCell>
                               </TableRow>
                               {expandedCounterRows.has(idx) && (
                                 <TableRow key={`${idx}-details`} className="bg-muted/20">
-                                  <TableCell colSpan={9} className="p-0">
-                                    {activeNoksForRow.length === 0 ? (
+                                  <TableCell colSpan={10} className="p-0">
+                                    {activeNokCodingsForRow.length === 0 ? (
                                       <p className="text-xs text-muted-foreground px-6 py-3">No NOK categories with values greater than 0.</p>
                                     ) : (
                                       <table className="w-full text-sm">
@@ -330,12 +316,12 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                           </tr>
                                         </thead>
                                         <tbody>
-                                          {activeNoksForRow.map((col) => {
-                                            const value = counter[col] as number;
-                                            const description = getNokDesc(((col as string).slice(0,3) + '_' + (col as string).slice(3)).toUpperCase());
+                                          {activeNokCodingsForRow.map((nokCoding) => {
+                                            const value = nokCoding.errorCodes.reduce((acc, errorCode) => acc + errorCode.count, 0);
+                                            const description = getNokDesc(nokCoding.name);
                                             if (!description) return null;
                                             return (
-                                              <tr key={col as string} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                                              <tr key={nokCoding.name} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                                                 <td className="px-6 py-2 font-medium">{description}</td>
                                                 <td className="px-6 py-2 text-right font-bold">{value}</td>
                                               </tr>
@@ -351,6 +337,10 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                           );
                         })}
                       </TableBody>
+                    </Table>
+                  </ScrollArea>
+                  <div className="border border-t-0 rounded-md rounded-t-none">
+                    <Table>
                       <TableFooter>
                         <TableRow>
                             <TableCell colSpan={2} rowSpan={2} className="font-bold text-lg text-center align-middle">Summary:</TableCell>
@@ -366,14 +356,14 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                             <TableCell className="font-bold text-center">{distinctPnsCount}</TableCell>
                             <TableCell className="font-bold text-center">{totalOkCount}</TableCell>
                             <TableCell className="font-bold text-center">{totalNokCount}</TableCell>
-                            <TableCell className="font-bold text-center">{averageOperators.toFixed(2)}</TableCell>
-                            <TableCell className="font-bold text-center">{averageOperatorsIndirect.toFixed(2)}</TableCell>
+                            <TableCell className="font-bold text-center">0</TableCell>
+                            <TableCell className="font-bold text-center">0</TableCell>
                             <TableCell className="font-bold text-center">{sumProductionTime}</TableCell>
                             <TableCell/>
                         </TableRow>
                       </TableFooter>
                     </Table>
-                  </ScrollArea>
+                  </div>
               </CardContent>
             </Card>
 
@@ -383,8 +373,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                 <CardTitle>Events</CardTitle>
                 <Button onClick={handleAddEvent} size="sm" disabled={reportLoading}><Plus className="w-4 h-4 mr-2"/>Add</Button>
               </CardHeader>
-              <CardContent className="flex-1 min-h-0">
-                <ScrollArea className="border rounded-md h-full min-h-0">
+              <CardContent className="flex-1 flex flex-col min-h-0">
+                <ScrollArea className="border border-b-0 rounded-md rounded-b-none flex-1 min-h-0">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/40">
@@ -468,6 +458,10 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                           );
                         })}
                       </TableBody>
+                    </Table>
+                  </ScrollArea>
+                  <div className="border border-t-0 rounded-md rounded-t-none">
+                    <Table>
                       <TableFooter>
                         <TableRow>
                             <TableCell colSpan={2} rowSpan={2} className="font-bold text-lg text-center align-middle">Summary:</TableCell>
@@ -486,7 +480,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                         </TableRow>
                       </TableFooter>
                     </Table>
-                  </ScrollArea>
+                  </div>
               </CardContent>
             </Card>
           </div>
@@ -496,12 +490,11 @@ export default function CurrentReport({ params }: CurrentReportProps) {
       {/* MODALS */}
       <Dialog open={isCounterFormOpen} onOpenChange={handleCounterFormClose}>
         <DialogContent className="sm:max-w-[80vw]">
-          <DialogHeader><DialogTitle>{selectedCounter ? 'Edit Counter' : 'Add Counter'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{selectedCounterRow ? 'Edit Counter' : 'Add Counter'}</DialogTitle></DialogHeader>
           {report && (
             <ProductionCounterForm
               reportId={reportId!}
-              initialData={selectedCounter}
-              userName={report.userName}
+              initialData={selectedCounterRow}
               reportArea={report.area}
               onSuccess={() => { handleCounterFormClose(); queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Counters`] }); }}
             />
@@ -540,8 +533,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={deleteEventMutation.isPending || deleteCounterMutation.isPending}>
-              {deleteEventMutation.isPending || deleteCounterMutation.isPending ? "Deleting..." : "Delete"}
+            <AlertDialogAction onClick={confirmDelete} disabled={deleteEventMutation.isPending || deleteCounterRowMutation.isPending}>
+              {deleteEventMutation.isPending || deleteCounterRowMutation.isPending ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

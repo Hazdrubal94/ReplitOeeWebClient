@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import { GetNokCategory, GetProductionCounter, CreateUpdateProductionCounter, createUpdateProductionCounterSchema } from "@shared/schema";
+import { GetNokCategory, GetCounterRowProductionTime, CreateUpdateProductionTimeAndCounterRows, createUpdateProductionTimeAndCounterRowsSchema, createUpdateProductionCounterSchema } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
@@ -21,60 +21,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 interface ProductionCounterFormProps {
   reportId: string;
-  userName: string;
   reportArea: string;
-  initialData?: GetProductionCounter;
+  initialData?: GetCounterRowProductionTime;
   onSuccess: () => void;
 }
 
-export default function ProductionCounterForm({ reportId, userName, reportArea, initialData, onSuccess }: ProductionCounterFormProps) {
+export default function ProductionCounterForm({ reportId, reportArea, initialData, onSuccess }: ProductionCounterFormProps) {
   const { toast } = useToast();
-  const form = useForm<CreateUpdateProductionCounter>({
-    resolver: zodResolver(createUpdateProductionCounterSchema),
+  const form = useForm<CreateUpdateProductionTimeAndCounterRows>({
+    resolver: zodResolver(createUpdateProductionTimeAndCounterRowsSchema),
     defaultValues: {
       hour: initialData?.hour ?? 1,
+      sequence: initialData?.sequence ?? 1,
       pn: initialData?.pn ?? "",
-      okCount: initialData?.okCount ?? 0,
-      nokCount: initialData?.nokCount ?? 0,
-      nokA: initialData?.nokA ?? 0,
-      nokB: initialData?.nokB ?? 0,
-      nokC: initialData?.nokC ?? 0,
-      nokD: initialData?.nokD ?? 0,
-      nokE: initialData?.nokE ?? 0,
-      nokF: initialData?.nokF ?? 0,
-      nokG: initialData?.nokG ?? 0,
-      nokH: initialData?.nokH ?? 0,
-      nokI: initialData?.nokI ?? 0,
-      nokJ: initialData?.nokJ ?? 0,
-      nokK: initialData?.nokK ?? 0,
-      nokL: initialData?.nokL ?? 0,
-      nokM: initialData?.nokM ?? 0,
-      nokN: initialData?.nokN ?? 0,
-      nokO: initialData?.nokO ?? 0,
-      nokP: initialData?.nokP ?? 0,
-      nokQ: initialData?.nokQ ?? 0,
-      nokR: initialData?.nokR ?? 0,
-      nokS: initialData?.nokS ?? 0,
-      nokT: initialData?.nokT ?? 0,
-      nokX: initialData?.nokX ?? 0,
-      nokY: initialData?.nokY ?? 0,
-      nokZ: initialData?.nokZ ?? 0,
-      nokAa: initialData?.nokAa ?? 0,
-      nokBb: initialData?.nokBb ?? 0,
-      nokCc: initialData?.nokCc ?? 0,
-      nokDd: initialData?.nokDd ?? 0,
-      nokEe: initialData?.nokEe ?? 0,
-      nokFf: initialData?.nokFf ?? 0,
-      nokGg: initialData?.nokGg ?? 0,
-      nokHh: initialData?.nokHh ?? 0,
-      nokIi: initialData?.nokIi ?? 0,
-      nokJj: initialData?.nokJj ?? 0,
-      nokKk: initialData?.nokKk ?? 0,
-      nokTaken: initialData?.nokTaken ?? 0,
+      fert: initialData?.fert ?? "",
       productionTime: initialData?.productionTime ?? 0,
-      operators: initialData?.operators ?? 0,
-      operatorsIndirect: initialData?.operatorsIndirect ?? 0,
-      userName: userName,
+      codings: initialData?.codings
     },
   });
 
@@ -96,7 +58,7 @@ export default function ProductionCounterForm({ reportId, userName, reportArea, 
   };
 
   const createMutation = useMutation({
-    mutationFn: (data: CreateUpdateProductionCounter) => api.createProductionCounter(reportId, data),
+    mutationFn: (data: CreateUpdateProductionTimeAndCounterRows) => api.createProductionTimeAndCounterRows(reportId, data),
     onSuccess: () => {
       onSuccess();
       toast({ title: "Production Counter Created", description: "The production counter has been created successfully." });
@@ -107,7 +69,7 @@ export default function ProductionCounterForm({ reportId, userName, reportArea, 
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: CreateUpdateProductionCounter) => api.updateProductionCounter(reportId, initialData!.id, data),
+    mutationFn: (data: CreateUpdateProductionTimeAndCounterRows) => api.updateProductionTimeAndCounterRows(reportId, initialData!.id, data),
     onSuccess: () => {
       onSuccess();
       toast({ title: "Production Counter Updated", description: "The production counter has been updated successfully." });
@@ -117,7 +79,7 @@ export default function ProductionCounterForm({ reportId, userName, reportArea, 
     },
   });
 
-  const onSubmit = (values: CreateUpdateProductionCounter) => {
+  const onSubmit = (values: CreateUpdateProductionTimeAndCounterRows) => {
     if (initialData) {
       updateMutation.mutate(values);
     } else {
@@ -140,7 +102,8 @@ export default function ProductionCounterForm({ reportId, userName, reportArea, 
     field.onChange(value);
   };
 
-  const nokFields = Object.keys(createUpdateProductionCounterSchema.shape).filter(key => key.startsWith('nok') && key !== 'nokCount' && key !== 'nokTaken');
+  const nokCodings = Object.keys(createUpdateProductionCounterSchema.shape).filter(key => key.startsWith('nok') && key !== 'nokCount' && key !== 'nokTaken')
+                                                                            .map(key => (key.slice(0,3) + '_' + key.slice(3)).toUpperCase());
 
   const renderNumericInput = (field: any, max?: number) => (
     <FormControl>
@@ -206,7 +169,7 @@ export default function ProductionCounterForm({ reportId, userName, reportArea, 
           render={({ field }) => (
             <FormItem>
               <FormLabel>PN</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
+                  <Select required={ true } onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select a PN"} />
@@ -226,43 +189,34 @@ export default function ProductionCounterForm({ reportId, userName, reportArea, 
         />
         <FormField
           control={form.control}
-          name="okCount"
+          name="fert"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>FERT</FormLabel>
+                  <Select required={true} onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select FERT"} />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {pns.map((pn, index) => (
+                    <SelectItem key={index} value={pn}>
+                      {pn}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="codings.0.errorCodes.0.count"
           render={({ field }) => (
             <FormItem>
               <FormLabel>OK Count</FormLabel>
-              {renderNumericInput(field)}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="nokCount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>NOK Count</FormLabel>
-              {renderNumericInput(field)}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="operators"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Operators</FormLabel>
-              {renderNumericInput(field)}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="operatorsIndirect"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Operators Indirect</FormLabel>
               {renderNumericInput(field)}
               <FormMessage />
             </FormItem>
@@ -282,15 +236,15 @@ export default function ProductionCounterForm({ reportId, userName, reportArea, 
         </div>
         <hr className="my-6" />
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        {nokFields.map(field => {
-          const description = getNokDescription((field.slice(0,3) + '_' + field.slice(3)).toUpperCase());
+        {nokCodings.map(codingName => {
+          const description = getNokDescription(codingName);
           if (!description) return null;
 
           return (
             <FormField
-              key={field}
+              key={codingName}
               control={form.control}
-              name={field as any}
+              name={codingName as any}
               render={({ field: formField }) => (
                 <FormItem>
                   <FormLabel>{description}</FormLabel>
