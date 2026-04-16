@@ -118,14 +118,9 @@ export const createUpdateProductionCounterSchema = z.object({
   productionTime: z.number()
 });
 
-export const errorCodeSchema = z.object({
-  code: z.number(),
-  count: z.number()
-});
-
 export const codingSchema = z.object({
     name: z.string(),
-    errorCodes: z.array(errorCodeSchema)
+    count: z.number()
 });
 
 export const getCounterRowProductionTimeSchema = z.object({

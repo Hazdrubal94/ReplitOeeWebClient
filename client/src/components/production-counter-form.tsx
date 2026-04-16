@@ -213,7 +213,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
         />
         <FormField
           control={form.control}
-          name="codings.0.errorCodes.0.count"
+          name="codings.0.count"
           render={({ field }) => (
             <FormItem>
               <FormLabel>OK Count</FormLabel>
@@ -239,7 +239,6 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
         {nokCodings.map(codingName => {
           const description = getNokDescription(codingName);
           if (!description) return null;
-
           return (
             <FormField
               key={codingName}
