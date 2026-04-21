@@ -12,7 +12,8 @@ import type
     GetNokCategory,
     GetCategoryDescription,
     GetSubcategoryDescription,
-    GetMachineDescription
+    GetMachineDescription,
+    Coding
 } from "@shared/schema";
 
 const BASE_URL = "https://localhost:8443";
@@ -113,6 +114,9 @@ export const api = {
     fetch(`${BASE_URL}/api/ProductionReports/ProductionTimes/${id}`, {
       method: "DELETE",
     }).then(r => handleResponse<void>(r)),
+
+  getCodings: (reportId: string, hour: number): Promise<Coding[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Codings/${hour}`).then(r => handleResponse<Coding[]>(r)),
 
   getProductionEvents: (reportId: string): Promise<GetProductionEvent[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Events`).then(r => handleResponse<GetProductionEvent[]>(r)),

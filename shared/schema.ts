@@ -118,9 +118,15 @@ export const createUpdateProductionCounterSchema = z.object({
   productionTime: z.number()
 });
 
+export const errorCodeSchema = z.object({
+  code: z.number(),
+  count: z.number()
+});
+
 export const codingSchema = z.object({
-    name: z.string(),
-    count: z.number()
+  name: z.string(),
+  errorCodes: z.array(errorCodeSchema),
+  summary: z.number()
 });
 
 export const getCounterRowProductionTimeSchema = z.object({
@@ -131,6 +137,8 @@ export const getCounterRowProductionTimeSchema = z.object({
   pn: z.string(),
   fert: z.string(),
   productionTime: z.number(),
+  operators: z.number(),
+  operatorsIndirect: z.number(),
   codings: z.array(codingSchema)
 });
 
@@ -140,6 +148,8 @@ export const createUpdateProductionTimeAndCounterRowsSchema = z.object({
   pn: z.string(),
   fert: z.string(),
   productionTime: z.number(),
+  operators: z.number(),
+  operatorsIndirect: z.number(),
   codings: z.array(codingSchema)
 });
 
@@ -208,6 +218,7 @@ export type GetNokCategory = z.infer<typeof getNokCategorySchema>;
 export type GetCategoryDescription = z.infer<typeof getCategoryDescriptionSchema>;
 export type GetSubcategoryDescription = z.infer<typeof getSubcategoryDescriptionSchema>;
 export type GetMachineDescription = z.infer<typeof getMachineDescriptionSchema>;
+export type Coding = z.infer<typeof codingSchema>;
 
 export const users = {} as any;
 export const insertUserSchema = z.object({ username: z.string(), password: z.string() });

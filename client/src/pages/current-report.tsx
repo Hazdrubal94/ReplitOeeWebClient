@@ -208,11 +208,11 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     else if (counterToDelete) deleteCounterRowMutation.mutate(counterToDelete.id);
   };
 
-  const totalOkCount = counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.codings.filter(c => c.name == 'OK').flatMap(c => c.errorCodes).reduce((subAcc, errorCode) => subAcc + errorCode.count, 0), 0);
-  const totalNokCount = counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.codings.filter(c => c.name != 'OK').flatMap(c => c.errorCodes).reduce((subAcc, errorCode) => subAcc + errorCode.count, 0), 0);
+  const totalOkCount = counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.codings.find(c => c.name === 'OK')!.count, 0);
+  const totalNokCount = counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.codings.filter(c => c.name != 'OK').reduce((subAcc, coding) => subAcc + coding.count, 0), 0);
   const distinctPnsCount = [...new Set(counterRowProductionTimes.map(c => c.pn))].length;
-  //const averageOperators = counterRows.length > 0 ? (counterRows.reduce((acc, counter) => acc + counter.operators, 0) / counterRows.length) : 0;
-  //const averageOperatorsIndirect = counterRows.length > 0 ? (counterRows.reduce((acc, counter) => acc + counter.operatorsIndirect, 0) / counterRows.length) : 0;
+  const averageOperators = counterRowProductionTimes.length > 0 ? (counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.operators, 0) / counterRowProductionTimes.length) : 0;
+  const averageOperatorsIndirect = counterRowProductionTimes.length > 0 ? (counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.operatorsIndirect, 0) / counterRowProductionTimes.length) : 0;
   const sumProductionTime = counterRowProductionTimes.reduce((acc, counter) => acc + counter.productionTime, 0);
 
   const totalEventsDuration = events.reduce((acc, event) => acc + calculateDuration(event.startTime, event.stopTime), 0);
@@ -288,10 +288,10 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                 <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.hour}</TableCell>
                                 <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.pn}</TableCell>
                                 <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.fert}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name == 'OK').flatMap(c => c.errorCodes).reduce((acc, errorCode) => acc + errorCode.count, 0)}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name != 'OK').flatMap(c => c.errorCodes).reduce((acc, errorCode) => acc + errorCode.count, 0)}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">0</TableCell>
-                                <TableCell className="text-center border-l border-dashed">0</TableCell>
+                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name == 'OK').reduce((acc, coding) => acc + coding.count, 0)}</TableCell>
+                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name != 'OK').reduce((acc, coding) => acc + coding.count, 0)}</TableCell>
+                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.operators}</TableCell>
+                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.operatorsIndirect}</TableCell>
                                 <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.productionTime}</TableCell>
                                 <TableCell className="text-center border-l border-dashed">
                                   <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditCounter(counterRowProductionTime); }}>
@@ -317,13 +317,12 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                         </thead>
                                         <tbody>
                                           {activeNokCodingsForRow.map((nokCoding) => {
-                                            const value = nokCoding.errorCodes.reduce((acc, errorCode) => acc + errorCode.count, 0);
                                             const description = getNokDesc(nokCoding.name);
                                             if (!description) return null;
                                             return (
                                               <tr key={nokCoding.name} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                                                 <td className="px-6 py-2 font-medium">{description}</td>
-                                                <td className="px-6 py-2 text-right font-bold">{value}</td>
+                                                <td className="px-6 py-2 text-right font-bold">{nokCoding.count}</td>
                                               </tr>
                                             );
                                           })}
@@ -356,8 +355,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                             <TableCell className="font-bold text-center">{distinctPnsCount}</TableCell>
                             <TableCell className="font-bold text-center">{totalOkCount}</TableCell>
                             <TableCell className="font-bold text-center">{totalNokCount}</TableCell>
-                            <TableCell className="font-bold text-center">0</TableCell>
-                            <TableCell className="font-bold text-center">0</TableCell>
+                            <TableCell className="font-bold text-center">{averageOperators}</TableCell>
+                            <TableCell className="font-bold text-center">{averageOperatorsIndirect}</TableCell>
                             <TableCell className="font-bold text-center">{sumProductionTime}</TableCell>
                             <TableCell/>
                         </TableRow>
