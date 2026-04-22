@@ -133,7 +133,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const deleteCounterRowMutation = useMutation({
     mutationFn: (counterId: number) => api.deleteProductionTimeAndCounterRows(counterId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Counters`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/ProductionTimes`] });
       toast({ title: "Counter deleted" });
       setIsDeleteAlertOpen(false);
       setCounterToDelete(null);
@@ -196,7 +196,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const handleAddCounter = () => { setSelectedCounterRow(undefined); setIsCounterFormOpen(true); };
   const handleEditCounter = (counterRow: GetCounterRowProductionTime) => { setSelectedCounterRow(counterRow); setIsCounterFormOpen(true); };
   const handleDeleteCounter = (counterRow: GetCounterRowProductionTime) => { setCounterToDelete(counterRow); setIsDeleteAlertOpen(true); };
-  const handleCounterFormClose = () => { setIsCounterFormOpen(false); setSelectedCounterRow(undefined); };
+  const handleCounterFormClose = () => { setIsCounterFormOpen(false); };
 
   const handleAddEvent = () => { setSelectedEvent(undefined); setIsEventFormOpen(true); };
   const handleEditEvent = (event: GetProductionEvent) => { setSelectedEvent(event); setIsEventFormOpen(true); };
@@ -208,8 +208,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     else if (counterToDelete) deleteCounterRowMutation.mutate(counterToDelete.id);
   };
 
-  const totalOkCount = counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.codings.find(c => c.name === 'OK')!.count, 0);
-  const totalNokCount = counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.codings.filter(c => c.name != 'OK').reduce((subAcc, coding) => subAcc + coding.count, 0), 0);
+  const totalOkCount = counterRowProductionTimes.reduce((acc, counterRow) => acc + (counterRow.codings.find(c => c.name === 'OK')?.summary ?? 0), 0);
+  const totalNokCount = counterRowProductionTimes.reduce((acc, counterRow) => acc + (counterRow.codings.filter(c => c.name !== 'OK')?.reduce((subAcc, coding) => subAcc + coding.summary, 0) ?? 0), 0);
   const distinctPnsCount = [...new Set(counterRowProductionTimes.map(c => c.pn))].length;
   const averageOperators = counterRowProductionTimes.length > 0 ? (counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.operators, 0) / counterRowProductionTimes.length) : 0;
   const averageOperatorsIndirect = counterRowProductionTimes.length > 0 ? (counterRowProductionTimes.reduce((acc, counterRow) => acc + counterRow.operatorsIndirect, 0) / counterRowProductionTimes.length) : 0;
@@ -288,8 +288,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                 <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.hour}</TableCell>
                                 <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.pn}</TableCell>
                                 <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.fert}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name == 'OK').reduce((acc, coding) => acc + coding.count, 0)}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name != 'OK').reduce((acc, coding) => acc + coding.count, 0)}</TableCell>
+                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name == 'OK').reduce((acc, coding) => acc + coding.summary, 0)}</TableCell>
+                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name != 'OK').reduce((acc, coding) => acc + coding.summary, 0)}</TableCell>
                                 <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.operators}</TableCell>
                                 <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.operatorsIndirect}</TableCell>
                                 <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.productionTime}</TableCell>
@@ -322,7 +322,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                             return (
                                               <tr key={nokCoding.name} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
                                                 <td className="px-6 py-2 font-medium">{description}</td>
-                                                <td className="px-6 py-2 text-right font-bold">{nokCoding.count}</td>
+                                                <td className="px-6 py-2 text-right font-bold">{nokCoding.summary}</td>
                                               </tr>
                                             );
                                           })}
@@ -487,7 +487,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
       </div>
 
       {/* MODALS */}
-      <Dialog open={isCounterFormOpen} onOpenChange={handleCounterFormClose}>
+      <Dialog open={isCounterFormOpen} onOpenChange={setIsCounterFormOpen}>
         <DialogContent className="sm:max-w-[80vw]">
           <DialogHeader><DialogTitle>{selectedCounterRow ? 'Edit Counter' : 'Add Counter'}</DialogTitle></DialogHeader>
           {report && (
@@ -495,7 +495,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
               reportId={reportId!}
               initialData={selectedCounterRow}
               reportArea={report.area}
-              onSuccess={() => { handleCounterFormClose(); queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/Counters`] }); }}
+              onSuccess={() => { handleCounterFormClose(); queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/ProductionTimes`] }); }}
             />
           )}
         </DialogContent>

@@ -37,9 +37,9 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
       startTime: initialData?.startTime ?? "",
       stopTime: initialData?.stopTime ?? "",
       category: initialData?.category ?? 0,
-      subcategory: initialData?.subcategory,
+      subcategory: initialData?.subcategory ?? null,
       pn: initialData?.pn ?? "",
-      isAvailabilityLoss: initialData?.isAvailabilityLoss,
+      isAvailabilityLoss: initialData?.isAvailabilityLoss ?? false,
       machineNr: initialData?.machineNr ?? 0,
       description: initialData?.description ?? "",
       userName: userName,
@@ -131,8 +131,8 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
                   <FormLabel>Category</FormLabel>
                   <Select
                     onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue("subcategory", 0);
+                      field.onChange(parseInt(value, 10));
+                      form.setValue("subcategory", null);
                     }}
                     defaultValue={String(field.value)}
                   >
@@ -159,13 +159,17 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Subcategory</FormLabel>
-                  <Select onValueChange={field.onChange} value={String(field.value)} disabled={!categoryId || categoryId === 0 || isLoadingSubcategories}>
+                  <Select 
+                    onValueChange={(value) => field.onChange(value === 'null' ? null : parseInt(value, 10))}
+                    value={String(field.value ?? 'null')}
+                    disabled={!categoryId || categoryId === 0 || isLoadingSubcategories}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a subcategory" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="null">None</SelectItem>
                       {subcategories?.map((subcategory) => (
                         <SelectItem key={subcategory.id} value={String(subcategory.id)}>
                           {subcategory.descriptionEn}
@@ -209,7 +213,7 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Machine</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={String(field.value)}>
+                  <Select onValueChange={(value) => field.onChange(parseInt(value, 10))} defaultValue={String(field.value)}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a machine" />

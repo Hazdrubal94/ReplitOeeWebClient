@@ -27,10 +27,17 @@ interface ProductionCounterFormProps {
   onSuccess: () => void;
 }
 
+const codingNamesArray = ["OK", "NOK_A", "NOK_B", "NOK_C", "NOK_D", "NOK_E", "NOK_F", "NOK_G", "NOK_H", "NOK_I", "NOK_J", "NOK_K", "NOK_L", "NOK_M", "NOK_N", "NOK_O", "NOK_P", "NOK_Q", "NOK_R", "NOK_S", "NOK_T", "NOK_X", "NOK_Y", "NOK_Z",
+    "NOK_Aa", "NOK_Bb", "NOK_Cc", "NOK_Dd", "NOK_Ee", "NOK_Ff", "NOK_Gg", "NOK_Hh", "NOK_Ii", "NOK_Jj", "NOK_Kk"];
+
+const codingsDefaultValues = codingNamesArray.map(name => ({
+    name,
+    errorCodes: [],
+    summary: 0,
+}));
+
 export default function ProductionCounterForm({ reportId, reportArea, initialData, onSuccess }: ProductionCounterFormProps) {
   const { toast } = useToast();
-  const codingNamesArray = ["OK", "NOK_A", "NOK_B", "NOK_C", "NOK_D", "NOK_E", "NOK_F", "NOK_G", "NOK_H", "NOK_I", "NOK_J", "NOK_K", "NOK_L", "NOK_M", "NOK_N", "NOK_O", "NOK_P", "NOK_Q", "NOK_R", "NOK_S", "NOK_T", "NOK_X", "NOK_Y", "NOK_Z",
-                            "NOK_Aa", "NOK_Bb", "NOK_Cc", "NOK_Dd", "NOK_Ee", "NOK_Ff", "NOK_Gg", "NOK_Hh", "NOK_Ii", "NOK_Jj", "NOK_Kk"]; 
 
   const form = useForm<CreateUpdateProductionTimeAndCounterRows>({
     resolver: zodResolver(createUpdateProductionTimeAndCounterRowsSchema),
@@ -42,16 +49,35 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
       productionTime: initialData?.productionTime ?? 0,
       operators: initialData?.operators ?? 0,
       operatorsIndirect: initialData?.operatorsIndirect ?? 0,
-      codings: initialData?.codings
+      codings: codingsDefaultValues.map(c => {
+        const initialCoding = initialData?.codings?.find(ic => ic.name === c.name);
+        if (initialCoding) {
+          return { ...c, ...initialCoding };
+        }
+        return c;
+      })
     },
   });
 
   const hour = form.watch("hour");
-  const { data: fetchedCodings, isFetching: isFetchingCodings } = useQuery({
+  const { data: fetchedCodings } = useQuery({
     queryKey: ['codings', reportId, hour],
     queryFn: () => api.getCodings(reportId, hour),
-    enabled: !!reportId && !!hour,
+    enabled: !!reportId && !!hour && !initialData,
   });
+
+  React.useEffect(() => {
+    if (fetchedCodings) {
+      const updatedCodings = codingsDefaultValues.map(defaultCoding => {
+        const fetched = fetchedCodings.find(c => c.name === defaultCoding.name);
+        if (fetched) {
+            return { ...defaultCoding, ...fetched };
+        }
+        return defaultCoding;
+      });
+      form.setValue('codings', updatedCodings);
+    }
+  }, [fetchedCodings, form]);
 
   const codings = form.watch("codings");
   const okCodingIndex = codings.findIndex(c => c.name === "OK");
@@ -103,14 +129,15 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
     }
   };
 
-  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, field: any, max?: number) => {
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, field: any, min?: number, max?: number) => {
     let value = parseInt(e.target.value, 10);
+    const minValue = min ?? 0;
     if (isNaN(value)) {
-      field.onChange(0);
+      field.onChange(minValue);
       return;
     }
-    if (value < 0) {
-      value = 0;
+    if (value < minValue) {
+      value = minValue;
     }
     if (max !== undefined && value > max) {
       value = max;
@@ -118,7 +145,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
     field.onChange(value);
   };
 
-  const renderNumericInput = (field: any, isRequired: boolean, max?: number) => (
+  const renderNumericInput = (field: any, isRequired: boolean, min?: number, max?: number, disabled: boolean = false) => (
     <FormControl>
       <div className="flex items-center space-x-2">
         <Button
@@ -126,8 +153,8 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           variant="outline"
           size="icon"
           className="h-10 w-20"
-          onClick={() => field.onChange(Math.max(0, (field.value || 0) - 1))}
-          disabled={field.value <= 0}
+          onClick={() => field.onChange(Math.max(min ?? 0, (field.value || 0) - 1))}
+          disabled={disabled || field.value <= (min ?? 0)}
         >
           <Minus className="h-4 w-4" />
         </Button>
@@ -135,10 +162,11 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           required={isRequired}
           placeholder="0"
           type="number"
-          min="0"
+          min={min}
           max={max}
           {...field}
-          onChange={e => handleNumberChange(e, field, max)}
+          onChange={e => handleNumberChange(e, field, min, max)}
+          disabled={disabled}
           className="text-center h-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
         <Button
@@ -152,7 +180,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
               field.onChange(newValue);
             }
           }}
-          disabled={max !== undefined && field.value >= max}
+          disabled={disabled || (max !== undefined && field.value >= max)}
         >
           <Plus className="h-4 w-4" />
         </Button>
@@ -172,7 +200,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           render={({ field }) => (
             <FormItem>
               <FormLabel>Hour</FormLabel>
-              {renderNumericInput(field, true)}
+              {renderNumericInput(field, true, 1, 8, !!initialData)}
               <FormMessage />
             </FormItem>
           )}
@@ -225,23 +253,26 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
             </FormItem>
           )}
         />
-        <FormField
+        {okCodingIndex > -1 && <FormField
           control={form.control}
           name={`codings.${okCodingIndex}.summary`}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>OK Count</FormLabel>
-              {renderNumericInput(field, true)}
-              <FormMessage />
-            </FormItem>
-          )}
-        />        
+          render={({ field }) => {
+              const min = codings[okCodingIndex].errorCodes.filter(ec => ec.code !== -9999).reduce((sum, ec) => sum + (ec.count || 0), 0);
+            return (
+              <FormItem>
+                <FormLabel>OK Count</FormLabel>
+                {renderNumericInput(field, true, min)}
+                <FormMessage />
+              </FormItem>
+            );
+          }}
+        />}        
         <FormItem>
           <FormLabel>NOK Count</FormLabel>
           <FormControl>
             <Input
               type="number"
-              value={codings.filter(c => c.name != "OK").reduce((sum, c) => sum + (c.summary ?? 0), 0)}
+              value={codings?.filter(c => c.name !== "OK").reduce((sum, c) => sum + (c.summary ?? 0), 0) ?? 0}
               readOnly
               tabIndex={-1}
               className="text-center h-10 bg-muted cursor-not-allowed"
@@ -254,7 +285,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           render={({ field }) => (
             <FormItem>
               <FormLabel>Production Time</FormLabel>
-              {renderNumericInput(field, true, 60)}
+              {renderNumericInput(field, true, 0, 60)}
               <FormMessage />
             </FormItem>
           )}
@@ -265,7 +296,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           render={({ field }) => (
             <FormItem>
               <FormLabel>Operators</FormLabel>
-              {renderNumericInput(field, true)}
+              {renderNumericInput(field, true, 0)}
               <FormMessage />
             </FormItem>
           )}
@@ -276,7 +307,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           render={({ field }) => (
             <FormItem>
               <FormLabel>Operators Indirect</FormLabel>
-              {renderNumericInput(field, true)}
+              {renderNumericInput(field, true, 0)}
               <FormMessage />
             </FormItem>
           )}
@@ -287,15 +318,18 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           {codings?.map((coding, index) => {
             const description = getNokDescription(coding.name);
             if (!description) return null;
+
+            const min = coding.errorCodes.filter(ec => ec.code !== -9999).reduce((sum, ec) => sum + (ec.count || 0), 0);
         
             return (
               <FormField
+                key={`${coding.name}-${index}`}
                 control={form.control}
                 name={`codings.${index}.summary`}
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{description}</FormLabel>
-                    {renderNumericInput(field, false)}
+                    {renderNumericInput(field, false, min)}
                     <FormMessage />
                   </FormItem>
                 )}
