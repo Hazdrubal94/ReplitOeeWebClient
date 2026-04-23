@@ -43,7 +43,6 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
     resolver: zodResolver(createUpdateProductionTimeAndCounterRowsSchema),
     defaultValues: {
       hour: initialData?.hour ?? 1,
-      sequence: initialData?.sequence ?? 1,
       pn: initialData?.pn ?? "",
       fert: initialData?.fert ?? "",
       productionTime: initialData?.productionTime ?? 0,

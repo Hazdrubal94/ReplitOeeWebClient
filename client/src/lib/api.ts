@@ -115,6 +115,12 @@ export const api = {
       method: "DELETE",
     }).then(r => handleResponse<void>(r)),
 
+  updateProductionTimeSequence: (id: number, newSequence: number): Promise<GetCounterRowProductionTime> =>
+    fetch(`${BASE_URL}/api/ProductionReports/ProductionTimes/${id}/Sequence/${newSequence}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" }
+    }).then(r => handleResponse<GetCounterRowProductionTime>(r)),
+
   getCodings: (reportId: string, hour: number): Promise<Coding[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Codings/${hour}`).then(r => handleResponse<Coding[]>(r)),
 

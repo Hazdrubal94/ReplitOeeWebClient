@@ -144,7 +144,6 @@ export const getCounterRowProductionTimeSchema = z.object({
 
 export const createUpdateProductionTimeAndCounterRowsSchema = z.object({
   hour: z.number(),
-  sequence: z.number(),
   pn: z.string(),
   fert: z.string(),
   productionTime: z.number(),

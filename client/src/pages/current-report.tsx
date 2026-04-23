@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useCurrentReport } from "@/lib/current-report-context";
 import { useToast } from "@/hooks/use-toast";
@@ -58,7 +58,10 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [expandedCounterRows, setExpandedCounterRows] = useState<Set<number>>(new Set());
+  const [expandedHours, setExpandedHours] = useState<Set<number>>(new Set());
+  const [expandedPnRows, setExpandedPnRows] = useState<Set<number>>(new Set());
+  const [draggedPnId, setDraggedPnId] = useState<number | null>(null);
+  const [dragOverPnId, setDragOverPnId] = useState<number | null>(null);
   const [expandedEventRows, setExpandedEventRows] = useState<Set<number>>(new Set());
   const [isCounterFormOpen, setIsCounterFormOpen] = useState(false);
   const [selectedCounterRow, setSelectedCounterRow] = useState<GetCounterRowProductionTime | undefined>(undefined);
@@ -130,6 +133,39 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     enabled: !!report,
   });
 
+  const updateSequenceMutation = useMutation<GetCounterRowProductionTime, Error, { id: number; sequence: number }, { previous?: GetCounterRowProductionTime[] }>({
+    mutationFn: ({ id, sequence }) => api.updateProductionTimeSequence(id, sequence),
+    onMutate: async ({ id, sequence }) => {
+      const queryKey = [`/api/reports/${reportId}/ProductionTimes`];
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<GetCounterRowProductionTime[]>(queryKey);
+      if (previous) {
+        const dragged = previous.find((r) => r.id === id);
+        if (dragged) {
+          const hour = dragged.hour;
+          const sameHourSorted = previous
+            .filter((r) => r.hour === hour)
+            .sort((a, b) => a.sequence - b.sequence);
+          const others = sameHourSorted.filter((r) => r.id !== id);
+          const insertIdx = Math.max(0, Math.min(others.length, sequence - 1));
+          const reordered = [...others.slice(0, insertIdx), dragged, ...others.slice(insertIdx)];
+          const seqMap = new Map<number, number>();
+          reordered.forEach((r, i) => seqMap.set(r.id, i + 1));
+          const next = previous.map((r) => r.hour === hour ? { ...r, sequence: seqMap.get(r.id) ?? r.sequence } : r);
+          queryClient.setQueryData(queryKey, next);
+        }
+      }
+      return { previous };
+    },
+    onError: (err, _vars, context) => {
+      if (context?.previous) { queryClient.setQueryData([`/api/reports/${reportId}/ProductionTimes`], context.previous); }
+      toast({ title: "Failed to update sequence", description: err.message, variant: "destructive" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/ProductionTimes`] });
+    },
+  });
+
   const deleteCounterRowMutation = useMutation({
     mutationFn: (counterId: number) => api.deleteProductionTimeAndCounterRows(counterId),
     onSuccess: () => {
@@ -179,11 +215,18 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     return category ? category.descriptionEn : null;
   }
 
-  const toggleCounterRowExpanded = (idx: number) => {
-    const newExpanded = new Set(expandedCounterRows);
-    if (newExpanded.has(idx)) newExpanded.delete(idx);
-    else newExpanded.add(idx);
-    setExpandedCounterRows(newExpanded);
+  const toggleHourExpanded = (hour: number) => {
+    const newExpanded = new Set(expandedHours);
+    if (newExpanded.has(hour)) newExpanded.delete(hour);
+    else newExpanded.add(hour);
+    setExpandedHours(newExpanded);
+  };
+
+  const togglePnRowExpanded = (id: number) => {
+    const newExpanded = new Set(expandedPnRows);
+    if (newExpanded.has(id)) newExpanded.delete(id);
+    else newExpanded.add(id);
+    setExpandedPnRows(newExpanded);
   };
 
   const toggleEventRowExpanded = (idx: number) => {
@@ -273,68 +316,148 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                         </TableRow>
                       </TableHeader>
                       <TableBody className="border-b">
-                        {counterRowProductionTimes.map((counterRowProductionTime, idx) => {
-                          const activeNokCodingsForRow = counterRowProductionTime.codings.filter(c => c.name != 'OK');
-                          return (
-                            <>
-                              <TableRow key={`${idx}-main`} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleCounterRowExpanded(idx)}>
-                                <TableCell className="w-10 bg-background text-center">
-                                  {expandedCounterRows.has(idx) ? (
-                                    <ChevronUp className="w-4 h-4 inline" />
-                                  ) : (
-                                    <ChevronDown className="w-4 h-4 inline" />
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.hour}</TableCell>
-                                <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.pn}</TableCell>
-                                <TableCell className="text-center font-bold border-l border-dashed">{counterRowProductionTime.fert}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name == 'OK').reduce((acc, coding) => acc + coding.summary, 0)}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.codings.filter(c => c.name != 'OK').reduce((acc, coding) => acc + coding.summary, 0)}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.operators}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.operatorsIndirect}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{counterRowProductionTime.productionTime}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">
-                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditCounter(counterRowProductionTime); }}>
-                                    <Pen className="w-4 h-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteCounter(counterRowProductionTime); }} disabled={reportLoading}>
-                                    <Trash className="w-4 h-4" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                              {expandedCounterRows.has(idx) && (
-                                <TableRow key={`${idx}-details`} className="bg-muted/20">
-                                  <TableCell colSpan={10} className="p-0">
-                                    {activeNokCodingsForRow.length === 0 ? (
-                                      <p className="text-xs text-muted-foreground px-6 py-3">No NOK categories with values greater than 0.</p>
-                                    ) : (
-                                      <table className="w-full text-sm">
-                                        <thead>
-                                          <tr className="border-b border-border bg-muted/30">
-                                            <th className="text-left px-6 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">NOK Category</th>
-                                            <th className="text-right px-6 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Value</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {activeNokCodingsForRow.map((nokCoding) => {
-                                            const description = getNokDesc(nokCoding.name);
-                                            if (!description) return null;
-                                            return (
-                                              <tr key={nokCoding.name} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
-                                                <td className="px-6 py-2 font-medium">{description}</td>
-                                                <td className="px-6 py-2 text-right font-bold">{nokCoding.summary}</td>
-                                              </tr>
-                                            );
-                                          })}
-                                        </tbody>
-                                      </table>
-                                    )}
+                        {(() => {
+                          const sortedRows = [...counterRowProductionTimes].sort((a, b) => a.hour - b.hour || a.sequence - b.sequence);
+                          const hourGroups = new Map<number, GetCounterRowProductionTime[]>();
+                          for (const r of sortedRows) {
+                            if (!hourGroups.has(r.hour)) hourGroups.set(r.hour, []);
+                            hourGroups.get(r.hour)!.push(r);
+                          }
+                          const hours = Array.from(hourGroups.keys()).sort((a, b) => a - b);
+                          return hours.map((hour) => {
+                            const rows = hourGroups.get(hour)!;
+                            const hourProdTime = rows.reduce((acc, r) => acc + r.productionTime, 0);
+                            const formatList = (vals: (string | number)[]) => { 
+                              const unique = Array.from(new Set(vals.map((v) => String(v))));
+                              const shown = unique.length > 1 ? unique.slice(0, 3).map(x => "..." + x.substring(5)).join(", ") : unique[0];
+                              return unique.length > 3 ? `${shown}, ...` : shown;
+                            };
+                            const hourPns = formatList(rows.map((r) => r.pn));
+                            const hourFerts = formatList(rows.map((r) => r.fert));
+                            const hourOk = rows.reduce((acc, r) => acc + r.codings.filter((c) => c.name === "OK").reduce((s, c) => s + c.summary, 0), 0);
+                            const hourNok = rows.reduce((acc, r) => acc + r.codings.filter((c) => c.name !== "OK").reduce((s, c) => s + c.summary, 0), 0);
+                            const hourAvgOperators = rows.length > 0 ? rows.reduce((acc, r) => acc + r.operators, 0) / rows.length : 0;
+                            const hourAvgOperatorsIndirect = rows.length > 0 ? rows.reduce((acc, r) => acc + r.operatorsIndirect, 0) / rows.length : 0;
+                            const hourExpanded = expandedHours.has(hour);
+                            return (
+                              <Fragment key={`hour-${hour}`}>
+                                <TableRow className="cursor-pointer hover:bg-muted/50 bg-muted/30" onClick={() => toggleHourExpanded(hour)} data-testid={`row-hour-${hour}`}>
+                                  <TableCell className="w-10 bg-background text-center">
+                                    {hourExpanded ? <ChevronUp className="w-4 h-4 inline" /> : <ChevronDown className="w-4 h-4 inline" />}
                                   </TableCell>
+                                  <TableCell className="text-center font-bold border-l border-dashed">{hour}</TableCell>
+                                  <TableCell className="text-center font-bold border-l border-dashed">{hourPns}</TableCell>
+                                  <TableCell className="text-center font-bold border-l border-dashed">{hourFerts}</TableCell>
+                                  <TableCell className="text-center font-bold border-l border-dashed">{hourOk}</TableCell>
+                                  <TableCell className="text-center font-bold border-l border-dashed">{hourNok}</TableCell>
+                                  <TableCell className="text-center font-bold border-l border-dashed">{hourAvgOperators.toFixed(2)} [Avg.]</TableCell>
+                                  <TableCell className="text-center font-bold border-l border-dashed">{hourAvgOperatorsIndirect.toFixed(2)} [Avg.]</TableCell>
+                                  <TableCell className="text-center font-bold border-l border-dashed">{hourProdTime}</TableCell>
+                                  <TableCell className="border-l border-dashed" />
                                 </TableRow>
-                              )}
-                            </>
-                          );
-                        })}
+                                {hourExpanded && rows.map((counterRow, pnIdx) => {
+                                  const pnExpanded = expandedPnRows.has(counterRow.id);
+                                  const activeNokCodingsForRow = counterRow.codings.filter(c => c.name != 'OK');
+                                  const isDragging = draggedPnId === counterRow.id;
+                                  const isDragOver = dragOverPnId === counterRow.id && draggedPnId !== null && draggedPnId !== counterRow.id;
+                                  const draggedRow = draggedPnId !== null ? rows.find(r => r.id === draggedPnId) : null;
+                                  const sameHourDrag = !!draggedRow;
+                                  return (
+                                    <Fragment key={`pn-${counterRow.id}`}>
+                                      <TableRow
+                                        className={`cursor-move hover:bg-muted/50 ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-primary' : ''}`}
+                                        draggable
+                                        onDragStart={(e) => {
+                                          e.stopPropagation();
+                                          setDraggedPnId(counterRow.id);
+                                          e.dataTransfer.effectAllowed = 'move';
+                                          try { e.dataTransfer.setData('text/plain', String(counterRow.id)); } catch {}
+                                        }}
+                                        onDragOver={(e) => {
+                                          if (sameHourDrag && draggedPnId !== counterRow.id) {
+                                            e.preventDefault();
+                                            e.dataTransfer.dropEffect = 'move';
+                                            if (dragOverPnId !== counterRow.id) setDragOverPnId(counterRow.id);
+                                          }
+                                        }}
+                                        onDragLeave={() => {
+                                          if (dragOverPnId === counterRow.id) setDragOverPnId(null);
+                                        }}
+                                        onDrop={(e) => {
+                                          e.preventDefault();
+                                          const sourceId = draggedPnId;
+                                          setDraggedPnId(null);
+                                          setDragOverPnId(null);
+                                          if (sourceId === null || sourceId === counterRow.id) return;
+                                          const sourceRow = rows.find(r => r.id === sourceId);
+                                          if (!sourceRow) return;
+                                          const newSequence = pnIdx + 1;
+                                          updateSequenceMutation.mutate({ id: sourceId, sequence: newSequence });
+                                        }}
+                                        onDragEnd={() => {
+                                          setDraggedPnId(null);
+                                          setDragOverPnId(null);
+                                        }}
+                                        onClick={() => togglePnRowExpanded(counterRow.id)}
+                                        data-testid={`row-pn-${counterRow.id}`}
+                                      >
+                                        <TableCell className="w-10 bg-background text-center pl-6">
+                                          {pnExpanded ? <ChevronUp className="w-4 h-4 inline" /> : <ChevronDown className="w-4 h-4 inline" />}
+                                        </TableCell>
+                                        <TableCell className="border-l border-dashed" />
+                                        <TableCell className="text-center font-bold border-l border-dashed">{counterRow.pn}</TableCell>
+                                        <TableCell className="text-center font-bold border-l border-dashed">{counterRow.fert}</TableCell>
+                                        <TableCell className="text-center border-l border-dashed">{counterRow.codings.filter(c => c.name == 'OK').reduce((acc, coding) => acc + coding.summary, 0)}</TableCell>
+                                        <TableCell className="text-center border-l border-dashed">{counterRow.codings.filter(c => c.name != 'OK').reduce((acc, coding) => acc + coding.summary, 0)}</TableCell>
+                                        <TableCell className="text-center border-l border-dashed">{counterRow.operators}</TableCell>
+                                        <TableCell className="text-center border-l border-dashed">{counterRow.operatorsIndirect}</TableCell>
+                                        <TableCell className="text-center border-l border-dashed">{counterRow.productionTime}</TableCell>
+                                        <TableCell className="text-center border-l border-dashed">
+                                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditCounter(counterRow); }} data-testid={`button-edit-counter-${counterRow.id}`}>
+                                            <Pen className="w-4 h-4" />
+                                          </Button>
+                                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteCounter(counterRow); }} disabled={reportLoading} data-testid={`button-delete-counter-${counterRow.id}`}>
+                                            <Trash className="w-4 h-4" />
+                                          </Button>
+                                        </TableCell>
+                                      </TableRow>
+                                      {pnExpanded && (
+                                        <TableRow className="bg-muted/20">
+                                          <TableCell colSpan={10} className="p-0">
+                                            {activeNokCodingsForRow.length === 0 ? (
+                                              <p className="text-xs text-muted-foreground px-6 py-3">No NOK categories with values greater than 0.</p>
+                                            ) : (
+                                              <table className="w-full text-sm">
+                                                <thead>
+                                                  <tr className="border-b border-border bg-muted/30">
+                                                    <th className="text-left px-6 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">NOK Category</th>
+                                                    <th className="text-right px-6 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Value</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  {activeNokCodingsForRow.map((nokCoding) => {
+                                                    const description = getNokDesc(nokCoding.name);
+                                                    if (!description) return null;
+                                                    return (
+                                                      <tr key={nokCoding.name} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                                                        <td className="px-6 py-2 font-medium">{description}</td>
+                                                        <td className="px-6 py-2 text-right font-bold">{nokCoding.summary}</td>
+                                                      </tr>
+                                                    );
+                                                  })}
+                                                </tbody>
+                                              </table>
+                                            )}
+                                          </TableCell>
+                                        </TableRow>
+                                      )}
+                                    </Fragment>
+                                  );
+                                })}
+                              </Fragment>
+                            );
+                          });
+                        })()}
                       </TableBody>
                     </Table>
                   </ScrollArea>
