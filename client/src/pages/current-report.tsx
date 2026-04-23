@@ -350,8 +350,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                   <TableCell className="text-center font-bold border-l border-dashed">{hourFerts}</TableCell>
                                   <TableCell className="text-center font-bold border-l border-dashed">{hourOk}</TableCell>
                                   <TableCell className="text-center font-bold border-l border-dashed">{hourNok}</TableCell>
-                                  <TableCell className="text-center font-bold border-l border-dashed">{hourAvgOperators.toFixed(2)} [Avg.]</TableCell>
-                                  <TableCell className="text-center font-bold border-l border-dashed">{hourAvgOperatorsIndirect.toFixed(2)} [Avg.]</TableCell>
+                                  <TableCell className="text-center font-bold border-l border-dashed">{hourAvgOperators.toFixed(2)}</TableCell>
+                                  <TableCell className="text-center font-bold border-l border-dashed">{hourAvgOperatorsIndirect.toFixed(2)}</TableCell>
                                   <TableCell className="text-center font-bold border-l border-dashed">{hourProdTime}</TableCell>
                                   <TableCell className="border-l border-dashed" />
                                 </TableRow>
@@ -505,6 +505,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                           <TableHead className="px-2 text-center border-l border-dashed">Stop</TableHead>
                           <TableHead className="px-2 text-center border-l border-dashed">Duration</TableHead>
                           <TableHead className="px-2 text-center border-l border-dashed">PN</TableHead>
+                          <TableHead className="px-2 text-center border-l border-dashed">FERT</TableHead>
                           <TableHead className="px-2 text-center border-l border-dashed">Category</TableHead>
                           <TableHead className="px-2 text-center border-l border-dashed">Type</TableHead>
                           <TableHead className="px-2 text-center border-l border-dashed">Actions</TableHead>
@@ -539,6 +540,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                 <TableCell className="text-center border-l border-dashed">{event.stopTime.slice(0,5)}</TableCell>
                                 <TableCell className="text-center border-l border-dashed">{duration}</TableCell>
                                 <TableCell className="text-center border-l border-dashed">{event.pn}</TableCell>
+                                <TableCell className="text-center border-l border-dashed">{event.fert}</TableCell>
                                 <TableCell className="text-center border-l border-dashed">{getCategoryDesc(event.category) ?? "—"}</TableCell>
                                 <TableCell className="text-center border-l border-dashed">{event.isAvailabilityLoss ? "Av" : "Pf"}</TableCell>
                                 <TableCell  className="text-center border-l border-dashed">
@@ -552,7 +554,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                               </TableRow>
                               {(hasMachine || hasDescription || hasSubcategory) && expandedEventRows.has(idx) && (
                                 <TableRow key={`event-${idx}-details`} className="bg-muted/20 hover:bg-muted/30">
-                                  <TableCell colSpan={8} className="px-6 py-4 bg-muted/20">
+                                  <TableCell colSpan={9} className="px-6 py-4 bg-muted/20">
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-4">
                                       <div>
                                         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">

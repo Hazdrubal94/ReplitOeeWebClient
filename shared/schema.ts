@@ -125,6 +125,7 @@ export const errorCodeSchema = z.object({
 
 export const codingSchema = z.object({
   name: z.string(),
+  pn: z.string(),
   errorCodes: z.array(errorCodeSchema),
   summary: z.number()
 });
@@ -159,6 +160,7 @@ export const getProductionEventSchema = z.object({
   category: z.number(),
   subcategory: z.number().nullable(),
   pn: z.string(),
+  fert: z.string(),
   isAvailabilityLoss: z.boolean(),
   machineNr: z.number(),
   description: z.string(),
@@ -172,6 +174,7 @@ export const createUpdateProductionEventSchema = z.object({
   category: z.coerce.number(),
   subcategory: z.coerce.number().nullable(),
   pn: z.string(),
+  fert: z.string(),
   isAvailabilityLoss: z.boolean(),
   machineNr: z.coerce.number(),
   description: z.string(),

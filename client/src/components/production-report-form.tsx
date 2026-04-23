@@ -60,7 +60,7 @@ export function ProductionReportForm({
             <FormItem>
               <FormLabel>Date</FormLabel>
               <FormControl>
-                <Input required={true} type="date" {...field} />
+                <Input required type="date" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -72,7 +72,7 @@ export function ProductionReportForm({
           render={({ field }) => (
             <FormItem>
                 <FormLabel>Area</FormLabel>
-                <Select required={true} onValueChange={field.onChange} disabled={isLoadingAreaDescriptions}>
+                <Select required onValueChange={field.onChange} disabled={isLoadingAreaDescriptions}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder={isLoadingAreaDescriptions ? "Loading..." : "Select Area"} />
@@ -118,7 +118,7 @@ export function ProductionReportForm({
               <FormItem>
                 <FormLabel>User Name</FormLabel>
                 <FormControl>
-                  <Input required={true} type="text" placeholder="John Doe" {...field} />
+                  <Input required type="text" placeholder="John Doe" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -131,7 +131,7 @@ export function ProductionReportForm({
               <FormItem>
                 <FormLabel>UserId</FormLabel>
                 <FormControl>
-                  <Input required={true} type="text" placeholder="jxd3nn" {...field} />
+                  <Input required type="text" placeholder="jxd3nn" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

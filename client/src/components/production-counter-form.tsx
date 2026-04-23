@@ -32,6 +32,7 @@ const codingNamesArray = ["OK", "NOK_A", "NOK_B", "NOK_C", "NOK_D", "NOK_E", "NO
 
 const codingsDefaultValues = codingNamesArray.map(name => ({
     name,
+    pn: "",
     errorCodes: [],
     summary: 0,
 }));
@@ -43,8 +44,8 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
     resolver: zodResolver(createUpdateProductionTimeAndCounterRowsSchema),
     defaultValues: {
       hour: initialData?.hour ?? 1,
-      pn: initialData?.pn ?? "",
-      fert: initialData?.fert ?? "",
+      pn: initialData?.pn ?? undefined,
+      fert: initialData?.fert ?? undefined,
       productionTime: initialData?.productionTime ?? 0,
       operators: initialData?.operators ?? 0,
       operatorsIndirect: initialData?.operatorsIndirect ?? 0,
@@ -59,16 +60,17 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
   });
 
   const hour = form.watch("hour");
+  const pn = form.watch("pn");
   const { data: fetchedCodings } = useQuery({
     queryKey: ['codings', reportId, hour],
     queryFn: () => api.getCodings(reportId, hour),
-    enabled: !!reportId && !!hour && !initialData,
+    enabled: !!reportId && !!hour && !!pn && !initialData,
   });
 
   React.useEffect(() => {
     if (fetchedCodings) {
       const updatedCodings = codingsDefaultValues.map(defaultCoding => {
-        const fetched = fetchedCodings.find(c => c.name === defaultCoding.name);
+        const fetched = fetchedCodings.find(c => c.pn === defaultCoding.pn && c.name === defaultCoding.name);
         if (fetched) {
             return { ...defaultCoding, ...fetched };
         }
@@ -210,7 +212,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           render={({ field }) => (
             <FormItem>
               <FormLabel>PN</FormLabel>
-                  <Select required={ true } onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
+                  <Select required onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select a PN"} />
@@ -234,7 +236,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           render={({ field }) => (
             <FormItem>
               <FormLabel>FERT</FormLabel>
-                  <Select required={ true } onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
+                  <Select required onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select FERT"} />

@@ -1,7 +1,8 @@
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
+
 import {
   Form,
   FormControl,
@@ -12,12 +13,42 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { api } from "@/lib/api";
-import { GetProductionEvent, CreateUpdateProductionEvent, createUpdateProductionEventSchema, getCategoryDescriptionSchema, getMachineDescriptionSchema, GetSubcategoryDescription } from "@shared/schema";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
+
+import { Minus, Plus } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+
+import {
+  CreateUpdateProductionEvent,
+  GetProductionEvent,
+  GetSubcategoryDescription,
+  createUpdateProductionEventSchema,
+  getCategoryDescriptionSchema,
+  getMachineDescriptionSchema,
+} from "@shared/schema";
+
+const timeToMinutes = (time: string) => {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+};
+
+const minutesToTime = (minutes: number) => {
+  const h = Math.floor(minutes / 60) % 24;
+  const m = minutes % 60;
+  return `${h.toString().padStart(2, "0")}:${m
+    .toString()
+    .padStart(2, "0")}`;
+};
 
 interface ProductionEventFormProps {
   reportId: string;
@@ -34,31 +65,65 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
   const form = useForm<CreateUpdateProductionEvent>({
     resolver: zodResolver(createUpdateProductionEventSchema),
     defaultValues: {
-      startTime: initialData?.startTime ?? "",
-      stopTime: initialData?.stopTime ?? "",
-      category: initialData?.category ?? 0,
+      startTime: initialData?.startTime ?? undefined,
+      stopTime: initialData?.stopTime ?? undefined,
+      category: initialData?.category ?? undefined,
       subcategory: initialData?.subcategory ?? null,
-      pn: initialData?.pn ?? "",
+      pn: initialData?.pn ?? undefined,
+      fert: initialData?.fert ?? undefined,
       isAvailabilityLoss: initialData?.isAvailabilityLoss ?? false,
-      machineNr: initialData?.machineNr ?? 0,
+      machineNr: initialData?.machineNr ?? undefined,
       description: initialData?.description ?? "",
       userName: userName,
     },
   });
 
+  const startTime = form.watch("startTime");
+  const stopTime = form.watch("stopTime");
   const categoryId = form.watch("category");
 
-  const { data: subcategories, isLoading: isLoadingSubcategories } = useQuery<GetSubcategoryDescription[] | null>({
-    queryKey: [`/api/ProductionReports/Categories/${categoryId}/Subcategories`],
-    queryFn: () => api.getSubcategoriesForCategoryId(categoryId),
-    enabled: !!categoryId && categoryId !== 0,
+
+  const [duration, setDuration] = useState<number>(() => {
+    if (!initialData?.startTime || !initialData?.stopTime) return 0;
+    const startMin = timeToMinutes(initialData.startTime);
+    const stopMin = timeToMinutes(initialData.stopTime);
+    return stopMin >= startMin ? stopMin - startMin : 0;
   });
+
+  useEffect(() => {
+    if (!startTime) return;
+    const expectedStop = timeToMinutes(startTime) + duration;
+    if (stopTime && timeToMinutes(stopTime) === expectedStop) return;
+    form.setValue("stopTime", minutesToTime(expectedStop), {
+      shouldValidate: true,
+    });
+  }, [startTime, duration]);
+
+  useEffect(() => {
+    if (!startTime || !stopTime) return;
+
+    const startMin = timeToMinutes(startTime);
+    const stopMin = timeToMinutes(stopTime);
+
+    if (stopMin < startMin) {
+      form.setValue("stopTime", minutesToTime(startMin));
+      setDuration(0);
+    } else {
+      setDuration(stopMin - startMin);
+    }
+  }, [stopTime]);
 
   const { data: pns = [], isLoading: isLoadingPns } = useQuery<string[]>({ 
     queryKey: [`/api/ProductionReports/PNs?area=${reportArea}`],
     queryFn: () => api.getPNs(reportArea),
     enabled: !!reportArea,
   });
+
+  const { data: subcategories, isLoading: isLoadingSubcategories } = useQuery<GetSubcategoryDescription[] | null>({
+      queryKey: [`/api/ProductionReports/Categories/${categoryId}/Subcategories`],
+      queryFn: () => api.getSubcategoriesForCategoryId(categoryId!),
+      enabled: !!categoryId && categoryId !== 0,
+    });
 
   const createMutation = useMutation({
     mutationFn: (data: CreateUpdateProductionEvent) => api.createProductionEvent(reportId, data),
@@ -93,35 +158,148 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-3 gap-4">
+          <FormField
+            control={form.control}
+            name="startTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Start Time</FormLabel>
+                <FormControl>
+                  <Input required type="time" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="stopTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Stop Time</FormLabel>
+                <FormControl>
+                  <Input
+                    required
+                    type="time"
+                    {...field}
+                    min={startTime || undefined}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormItem>
+            <FormLabel>Duration (min)</FormLabel>
+            <FormControl>
+              <div className="flex items-center space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDuration((d) => Math.max(0, d - 1))}
+                >
+                  <Minus />
+                </Button>
+
+                <Input
+                  type="number"
+                  min={0}
+                  value={duration}
+                  onChange={(e) =>
+                    setDuration(Math.max(0, Number(e.target.value)))
+                  }
+                  className="text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDuration((d) => d + 1)}
+                >
+                  <Plus />
+                </Button>
+              </div>
+            </FormControl>
+          </FormItem>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <FormField
+            control={form.control}
+            name="pn"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>PN</FormLabel>
+                <Select required onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select a PN"} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {pns.map((pn, index) => (
+                      <SelectItem key={index} value={pn}>
+                        {pn}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="fert"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>FERT</FormLabel>
+                <Select required onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select a FERT"} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {pns.map((pn, index) => (
+                      <SelectItem key={index} value={pn}>
+                        {pn}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="machineNr"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Machine</FormLabel>
+                <Select required onValueChange={(value) => field.onChange(parseInt(value, 10))} defaultValue={!!field.value ? String(field.value) : undefined}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a machine" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {machineDescriptions.map((machine) => (
+                      <SelectItem key={machine.id} value={String(machine.id)}>
+                        {machine.machine} - {machine.description}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="startTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Start Time</FormLabel>
-                  <FormControl>
-                    <Input type="time" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="stopTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Stop Time</FormLabel>
-                  <FormControl>
-                    <Input type="time" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -130,11 +308,12 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
                 <FormItem>
                   <FormLabel>Category</FormLabel>
                   <Select
+                    required
                     onValueChange={(value) => {
                       field.onChange(parseInt(value, 10));
                       form.setValue("subcategory", null);
                     }}
-                    defaultValue={String(field.value)}
+                    defaultValue={!!field.value ? String(field.value) : undefined}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -173,56 +352,6 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
                       {subcategories?.map((subcategory) => (
                         <SelectItem key={subcategory.id} value={String(subcategory.id)}>
                           {subcategory.descriptionEn}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="pn"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>PN</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select a PN"} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {pns.map((pn, index) => (
-                        <SelectItem key={index} value={pn}>
-                          {pn}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="machineNr"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Machine</FormLabel>
-                  <Select onValueChange={(value) => field.onChange(parseInt(value, 10))} defaultValue={String(field.value)}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a machine" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {machineDescriptions.map((machine) => (
-                        <SelectItem key={machine.id} value={String(machine.id)}>
-                          {machine.machine} - {machine.description}
                         </SelectItem>
                       ))}
                     </SelectContent>
