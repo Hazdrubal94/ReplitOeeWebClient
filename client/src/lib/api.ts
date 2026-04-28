@@ -13,7 +13,8 @@ import type
     GetCategoryDescription,
     GetSubcategoryDescription,
     GetMachineDescription,
-    Coding
+    Coding,
+    Downtime
 } from "@shared/schema";
 
 const BASE_URL = "https://localhost:8443";
@@ -121,8 +122,11 @@ export const api = {
       headers: { "Content-Type": "application/json" }
     }).then(r => handleResponse<GetCounterRowProductionTime>(r)),
 
-  getCodings: (reportId: string, hour: number): Promise<Coding[]> =>
-    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Codings/${hour}`).then(r => handleResponse<Coding[]>(r)),
+  getCodings: (reportId: string, hour: number, pn: string): Promise<Coding[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Codings?hour=${hour}&pn=${pn}`).then(r => handleResponse<Coding[]>(r)),
+
+  getDowntimes: (reportId: string): Promise<Downtime[]> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Downtimes`).then(r => handleResponse<Downtime[]>(r)),
 
   getProductionEvents: (reportId: string): Promise<GetProductionEvent[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Events`).then(r => handleResponse<GetProductionEvent[]>(r)),

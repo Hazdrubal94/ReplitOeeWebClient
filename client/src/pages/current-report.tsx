@@ -405,8 +405,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                           {pnExpanded ? <ChevronUp className="w-4 h-4 inline" /> : <ChevronDown className="w-4 h-4 inline" />}
                                         </TableCell>
                                         <TableCell className="border-l border-dashed" />
-                                        <TableCell className="text-center font-bold border-l border-dashed">{counterRow.pn}</TableCell>
-                                        <TableCell className="text-center font-bold border-l border-dashed">{counterRow.fert}</TableCell>
+                                        <TableCell className="text-center border-l border-dashed">{counterRow.pn}</TableCell>
+                                        <TableCell className="text-center border-l border-dashed">{counterRow.fert}</TableCell>
                                         <TableCell className="text-center border-l border-dashed">{counterRow.codings.filter(c => c.name == 'OK').reduce((acc, coding) => acc + coding.summary, 0)}</TableCell>
                                         <TableCell className="text-center border-l border-dashed">{counterRow.codings.filter(c => c.name != 'OK').reduce((acc, coding) => acc + coding.summary, 0)}</TableCell>
                                         <TableCell className="text-center border-l border-dashed">{counterRow.operators}</TableCell>
@@ -478,8 +478,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                             <TableCell className="font-bold text-center">{distinctPnsCount}</TableCell>
                             <TableCell className="font-bold text-center">{totalOkCount}</TableCell>
                             <TableCell className="font-bold text-center">{totalNokCount}</TableCell>
-                            <TableCell className="font-bold text-center">{averageOperators}</TableCell>
-                            <TableCell className="font-bold text-center">{averageOperatorsIndirect}</TableCell>
+                            <TableCell className="font-bold text-center">{averageOperators.toFixed(2)}</TableCell>
+                            <TableCell className="font-bold text-center">{averageOperatorsIndirect.toFixed(2)}</TableCell>
                             <TableCell className="font-bold text-center">{sumProductionTime}</TableCell>
                             <TableCell/>
                         </TableRow>

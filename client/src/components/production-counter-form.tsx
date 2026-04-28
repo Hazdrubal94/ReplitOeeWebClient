@@ -1,6 +1,5 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -12,13 +11,14 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import { GetNokCategory, GetCounterRowProductionTime, CreateUpdateProductionTimeAndCounterRows, createUpdateProductionTimeAndCounterRowsSchema } from "@shared/schema";
+import { GetNokCategory, GetCounterRowProductionTime, CreateUpdateProductionTimeAndCounterRows, createUpdateProductionTimeAndCounterRowsSchema, Coding } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
 import { Minus, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import React from "react";
+import { Skeleton } from "./ui/skeleton";
 
 interface ProductionCounterFormProps {
   reportId: string;
@@ -49,47 +49,62 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
       productionTime: initialData?.productionTime ?? 0,
       operators: initialData?.operators ?? 0,
       operatorsIndirect: initialData?.operatorsIndirect ?? 0,
-      codings: codingsDefaultValues.map(c => {
-        const initialCoding = initialData?.codings?.find(ic => ic.name === c.name);
-        if (initialCoding) {
-          return { ...c, ...initialCoding };
-        }
-        return c;
-      })
+      codings: initialData?.codings ?? codingsDefaultValues,
     },
   });
 
   const hour = form.watch("hour");
   const pn = form.watch("pn");
-  const { data: fetchedCodings } = useQuery({
-    queryKey: ['codings', reportId, hour],
-    queryFn: () => api.getCodings(reportId, hour),
+  const { setValue } = form;
+
+  const { data: fetchedCodings, isLoading, isError } = useQuery<Coding[]>({ 
+    queryKey: ['codings', reportId, hour, pn],
+    queryFn: () => api.getCodings(reportId, hour, pn as string),
     enabled: !!reportId && !!hour && !!pn && !initialData,
-  });
+  })
 
   React.useEffect(() => {
-    if (fetchedCodings) {
-      const updatedCodings = codingsDefaultValues.map(defaultCoding => {
-        const fetched = fetchedCodings.find(c => c.pn === defaultCoding.pn && c.name === defaultCoding.name);
-        if (fetched) {
-            return { ...defaultCoding, ...fetched };
-        }
-        return defaultCoding;
-      });
-      form.setValue('codings', updatedCodings);
+    if (isError) {
+      toast({ title: "Failed to fetch codings", description: "Could not load coding data. Values have been reset.", variant: "destructive" });
+      if (pn) {
+        const updatedCodings = codingsDefaultValues.map(defaultCoding => ({
+          ...defaultCoding,
+          pn: pn,
+          summary: 0,
+          errorCodes: [],
+        }));
+        setValue('codings', updatedCodings);
+      }
     }
-  }, [fetchedCodings, form]);
+  }, [isError, pn, setValue, toast]);
+
+  React.useEffect(() => {
+    if (!pn) return;
+    
+    if (fetchedCodings) {
+        const updatedCodings = codingsDefaultValues.map(defaultCoding => {
+            const fetched = fetchedCodings.find(c => c.name === defaultCoding.name);
+            return {
+                ...defaultCoding,
+                pn: pn,
+                summary: fetched?.summary ?? 0,
+                errorCodes: fetched?.errorCodes ?? [],
+            };
+        });
+        setValue('codings', updatedCodings);
+    }
+  }, [fetchedCodings, pn, setValue]);
 
   const codings = form.watch("codings");
   const okCodingIndex = codings.findIndex(c => c.name === "OK");
 
-  const { data: nokCategories = [] } = useQuery<GetNokCategory[]>({
+  const { data: nokCategories = [] } = useQuery<GetNokCategory[]>({ 
     queryKey: [`/api/nok-categories/${reportArea}`],
     queryFn: () => api.getNokCategories(reportArea),
     enabled: !!reportArea,
   });
 
-  const { data: pns = [], isLoading: isLoadingPns } = useQuery<string[]>({ 
+  const { data: pns = [], isLoading: isLoadingPns } = useQuery<string[]>({  
     queryKey: [`/api/ProductionReports/PNs?area=${reportArea}`],
     queryFn: () => api.getPNs(reportArea),
     enabled: !!reportArea,
@@ -212,7 +227,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           render={({ field }) => (
             <FormItem>
               <FormLabel>PN</FormLabel>
-                  <Select required onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
+                  <Select required onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns || !!initialData}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select a PN"} />
@@ -254,20 +269,29 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
             </FormItem>
           )}
         />
-        {okCodingIndex > -1 && <FormField
-          control={form.control}
-          name={`codings.${okCodingIndex}.summary`}
-          render={({ field }) => {
-              const min = codings[okCodingIndex].errorCodes.filter(ec => ec.code !== -9999).reduce((sum, ec) => sum + (ec.count || 0), 0);
-            return (
-              <FormItem>
-                <FormLabel>OK Count</FormLabel>
-                {renderNumericInput(field, true, min)}
-                <FormMessage />
-              </FormItem>
-            );
-          }}
-        />}        
+        {okCodingIndex > -1 && (
+            isLoading && !initialData ? (
+                <FormItem>
+                    <FormLabel>OK Count</FormLabel>
+                    <Skeleton className="h-10" />
+                </FormItem>
+            ) : (
+                <FormField
+                    control={form.control}
+                    name={`codings.${okCodingIndex}.summary`}
+                    render={({ field }) => {
+                        const min = codings[okCodingIndex].errorCodes.filter(ec => ec.code !== -9999).reduce((sum, ec) => sum + (ec.count || 0), 0);
+                        return (
+                        <FormItem>
+                            <FormLabel>OK Count</FormLabel>
+                            {renderNumericInput(field, true, min)}
+                            <FormMessage />
+                        </FormItem>
+                        );
+                    }}
+                />
+            )
+        )}
         <FormItem>
           <FormLabel>NOK Count</FormLabel>
           <FormControl>
@@ -319,6 +343,15 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           {codings?.map((coding, index) => {
             const description = getNokDescription(coding.name);
             if (!description) return null;
+
+            if (isLoading && !initialData) {
+              return (
+                <FormItem key={`${coding.name}-${index}`}>
+                  <FormLabel>{description}</FormLabel>
+                  <Skeleton className="h-10 w-full" />
+                </FormItem>
+              )
+            }
 
             const min = coding.errorCodes.filter(ec => ec.code !== -9999).reduce((sum, ec) => sum + (ec.count || 0), 0);
         

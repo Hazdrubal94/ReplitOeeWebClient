@@ -125,7 +125,6 @@ export const errorCodeSchema = z.object({
 
 export const codingSchema = z.object({
   name: z.string(),
-  pn: z.string(),
   errorCodes: z.array(errorCodeSchema),
   summary: z.number()
 });
@@ -151,6 +150,14 @@ export const createUpdateProductionTimeAndCounterRowsSchema = z.object({
   operators: z.number(),
   operatorsIndirect: z.number(),
   codings: z.array(codingSchema)
+});
+
+export const downtimeSchema = z.object({
+  reference: z.string(),
+  startDate: z.date(),
+  stopDate: z.date(),
+  isChangeover: z.boolean(),
+  previousReference: z.string().nullable()
 });
 
 export const getProductionEventSchema = z.object({
@@ -221,6 +228,7 @@ export type GetCategoryDescription = z.infer<typeof getCategoryDescriptionSchema
 export type GetSubcategoryDescription = z.infer<typeof getSubcategoryDescriptionSchema>;
 export type GetMachineDescription = z.infer<typeof getMachineDescriptionSchema>;
 export type Coding = z.infer<typeof codingSchema>;
+export type Downtime = z.infer<typeof downtimeSchema>;
 
 export const users = {} as any;
 export const insertUserSchema = z.object({ username: z.string(), password: z.string() });
