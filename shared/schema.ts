@@ -153,11 +153,11 @@ export const createUpdateProductionTimeAndCounterRowsSchema = z.object({
 });
 
 export const downtimeSchema = z.object({
-  reference: z.string(),
-  startDate: z.date(),
-  stopDate: z.date(),
+  pn: z.string(),
+  startTime: z.string(),
+  stopTime: z.string(),
   isChangeover: z.boolean(),
-  previousReference: z.string().nullable()
+  previousPn: z.string().nullable()
 });
 
 export const getProductionEventSchema = z.object({

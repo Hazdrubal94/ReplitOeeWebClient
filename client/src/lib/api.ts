@@ -122,8 +122,8 @@ export const api = {
       headers: { "Content-Type": "application/json" }
     }).then(r => handleResponse<GetCounterRowProductionTime>(r)),
 
-  getCodings: (reportId: string, hour: number, pn: string): Promise<Coding[]> =>
-    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Codings?hour=${hour}&pn=${pn}`).then(r => handleResponse<Coding[]>(r)),
+  getCodingsDict: (reportId: string, hour: number): Promise<Record<string, Coding[]>> =>
+    fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Codings?hour=${hour}`).then(r => handleResponse<Record<string, Coding[]>>(r)),
 
   getDowntimes: (reportId: string): Promise<Downtime[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/${reportId}/Downtimes`).then(r => handleResponse<Downtime[]>(r)),

@@ -32,7 +32,6 @@ const codingNamesArray = ["OK", "NOK_A", "NOK_B", "NOK_C", "NOK_D", "NOK_E", "NO
 
 const codingsDefaultValues = codingNamesArray.map(name => ({
     name,
-    pn: "",
     errorCodes: [],
     summary: 0,
 }));
@@ -57,10 +56,10 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
   const pn = form.watch("pn");
   const { setValue } = form;
 
-  const { data: fetchedCodings, isLoading, isError } = useQuery<Coding[]>({ 
-    queryKey: ['codings', reportId, hour, pn],
-    queryFn: () => api.getCodings(reportId, hour, pn as string),
-    enabled: !!reportId && !!hour && !!pn && !initialData,
+  const { data: fetchedCodingsDict, isLoading, isError } = useQuery<Record<string, Coding[]>>({ 
+    queryKey: ['codings', reportId, hour],
+    queryFn: () => api.getCodingsDict(reportId, hour),
+    enabled: !!reportId && !!hour && !initialData,
   })
 
   React.useEffect(() => {
@@ -69,7 +68,6 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
       if (pn) {
         const updatedCodings = codingsDefaultValues.map(defaultCoding => ({
           ...defaultCoding,
-          pn: pn,
           summary: 0,
           errorCodes: [],
         }));
@@ -78,12 +76,10 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
     }
   }, [isError, pn, setValue, toast]);
 
-  React.useEffect(() => {
-    if (!pn) return;
-    
-    if (fetchedCodings) {
+    React.useEffect(() => {
+        if (fetchedCodingsDict) {
         const updatedCodings = codingsDefaultValues.map(defaultCoding => {
-            const fetched = fetchedCodings.find(c => c.name === defaultCoding.name);
+            const fetched = fetchedCodingsDict[pn].find(c => c.name === defaultCoding.name);
             return {
                 ...defaultCoding,
                 pn: pn,
@@ -93,7 +89,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
         });
         setValue('codings', updatedCodings);
     }
-  }, [fetchedCodings, pn, setValue]);
+  }, [fetchedCodingsDict, setValue]);
 
   const codings = form.watch("codings");
   const okCodingIndex = codings.findIndex(c => c.name === "OK");

@@ -82,7 +82,6 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
   const stopTime = form.watch("stopTime");
   const categoryId = form.watch("category");
 
-
   const [duration, setDuration] = useState<number>(() => {
     if (!initialData?.startTime || !initialData?.stopTime) return 0;
     const startMin = timeToMinutes(initialData.startTime);
@@ -147,13 +146,7 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
     },
   });
 
-  const onSubmit = (values: CreateUpdateProductionEvent) => {
-    if (initialData) {
-      updateMutation.mutate(values);
-    } else {
-      createMutation.mutate(values);
-    }
-  };
+  const onSubmit = (values: CreateUpdateProductionEvent) => initialData?.id ? updateMutation.mutate(values) : createMutation.mutate(values);
 
   return (
     <Form {...form}>
@@ -202,7 +195,6 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
                 >
                   <Minus />
                 </Button>
-
                 <Input
                   type="number"
                   min={0}
@@ -212,7 +204,6 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
                   }
                   className="text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
-
                 <Button
                   type="button"
                   variant="outline"
@@ -381,7 +372,7 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
         </div>
         <div className="flex justify-between items-center">
           <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-              {initialData ? 'Update Event' : 'Create Event'}
+              {initialData?.id ? 'Update Event' : 'Create Event'}
           </Button>
           <FormField
             control={form.control}

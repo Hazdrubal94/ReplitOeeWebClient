@@ -4,10 +4,8 @@ import { Fragment, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useCurrentReport } from "@/lib/current-report-context";
 import { useToast } from "@/hooks/use-toast";
-import type { GetProductionReport, GetCounterRowProductionTime, GetProductionEvent, GetCategoryDescription, GetSubcategoryDescription, GetMachineDescription, GetNokCategory } from "@shared/schema";
-import { z } from "zod";
+import type { GetProductionReport, GetCounterRowProductionTime, GetProductionEvent, GetCategoryDescription, GetSubcategoryDescription, GetMachineDescription, GetNokCategory, Downtime } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -66,11 +64,13 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const [isCounterFormOpen, setIsCounterFormOpen] = useState(false);
   const [selectedCounterRow, setSelectedCounterRow] = useState<GetCounterRowProductionTime | undefined>(undefined);
   const [isEventFormOpen, setIsEventFormOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<GetProductionEvent | undefined>(undefined);
+  const [selectedEvent, setSelectedEvent] = useState<Partial<GetProductionEvent> | undefined>(undefined);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<GetProductionEvent | null>(null);
   const [counterToDelete, setCounterToDelete] = useState<GetCounterRowProductionTime | null>(null);
   const reportId = params?.reportId;
+
+  const [proposedDowntimes, setProposedDowntimes] = useState<Downtime[]>([]);
 
   useEffect(() => {
     setReportId(reportId || null);
@@ -132,6 +132,21 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     queryFn: () => api.getNokCategories(report!.area),
     enabled: !!report,
   });
+
+  const { data: downtimes = [] } = useQuery<Downtime[]>({
+    queryKey: [`/api/reports/${reportId}/Downtimes`],
+    queryFn: () => api.getDowntimes(reportId!),
+    enabled: !!reportId,
+    retry: false,
+    });
+
+  useEffect(() => {
+    if (downtimes.length > 0 && events) {
+        const existingEventSignatures = new Set(events.map(e => `${e.startTime.slice(0,5)}-${e.stopTime.slice(0,5)}`));
+        const newDowntimes = downtimes.filter(d => !existingEventSignatures.has(`${d.startTime.slice(0, 5) }-${d.stopTime.slice(0,5)}`));
+        setProposedDowntimes(newDowntimes);
+    }
+  }, [downtimes, events]);
 
   const updateSequenceMutation = useMutation<GetCounterRowProductionTime, Error, { id: number; sequence: number }, { previous?: GetCounterRowProductionTime[] }>({
     mutationFn: ({ id, sequence }) => api.updateProductionTimeSequence(id, sequence),
@@ -246,6 +261,16 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const handleDeleteEvent = (event: GetProductionEvent) => { setEventToDelete(event); setIsDeleteAlertOpen(true); };
   const handleEventFormClose = () => { setIsEventFormOpen(false); setSelectedEvent(undefined); };
 
+  const handleAcceptDowntime = (downtime: Downtime) => {
+    const eventFromDowntime: Partial<GetProductionEvent> = {
+      pn: downtime.pn,
+      startTime: downtime.startTime.slice(0, 5),
+      stopTime: downtime.stopTime.slice(0, 5),
+    };
+    setSelectedEvent(eventFromDowntime);
+    setIsEventFormOpen(true);
+  };
+
   const confirmDelete = () => {
     if (eventToDelete) deleteEventMutation.mutate(eventToDelete.id);
     else if (counterToDelete) deleteCounterRowMutation.mutate(counterToDelete.id);
@@ -291,7 +316,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
             </Card>
           )}
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 flex-1 min-h-0">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 flex-1 min-h-0">
             {/* PRODUCTION COUNTERS */}
             <Card className="border shadow-sm flex flex-col min-h-0">
               <CardHeader className="flex flex-row items-center justify-between">
@@ -489,124 +514,165 @@ export default function CurrentReport({ params }: CurrentReportProps) {
               </CardContent>
             </Card>
 
-            {/* PRODUCTION EVENTS */}
-            <Card className="border shadow-sm flex flex-col min-h-0">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Events</CardTitle>
-                <Button onClick={handleAddEvent} size="sm" disabled={reportLoading}><Plus className="w-4 h-4 mr-2"/>Add</Button>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col min-h-0">
-                <ScrollArea className="border border-b-0 rounded-md rounded-b-none flex-1 min-h-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/40">
-                          <TableHead className="w-10"></TableHead>
-                          <TableHead className="px-2 text-center border-l border-dashed">Start</TableHead>
-                          <TableHead className="px-2 text-center border-l border-dashed">Stop</TableHead>
-                          <TableHead className="px-2 text-center border-l border-dashed">Duration</TableHead>
-                          <TableHead className="px-2 text-center border-l border-dashed">PN</TableHead>
-                          <TableHead className="px-2 text-center border-l border-dashed">FERT</TableHead>
-                          <TableHead className="px-2 text-center border-l border-dashed">Category</TableHead>
-                          <TableHead className="px-2 text-center border-l border-dashed">Type</TableHead>
-                          <TableHead className="px-2 text-center border-l border-dashed">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {events.map((event, idx) => {
-                          const hasMachine = !!event.machineNr;
-                          const hasSubcategory = !!event.subcategory;
-                          const hasDescription = !!event.description?.trim();
-                          const duration = calculateDuration(event.startTime, event.stopTime);
+            <div className="flex flex-col gap-2 min-h-0">
+              {proposedDowntimes.length > 0 && (
+                <Card className="border-yellow-400 bg-yellow-50 shadow-sm flex flex-col">
+                  <CardHeader className="flex flex-row items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
+                    <CardTitle className="text-lg">Proposed Downtimes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-40">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="px-2 text-center">Start</TableHead>
+                            <TableHead className="px-2 text-center">Stop</TableHead>
+                            <TableHead className="px-2 text-center">Duration</TableHead>
+                            <TableHead className="px-2 text-center">PN</TableHead>
+                            <TableHead className="px-2 text-center">Changeover</TableHead>
+                            <TableHead className="px-2 text-center">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {proposedDowntimes.map((downtime, index) => {
+                            const duration = calculateDuration(downtime.startTime, downtime.stopTime);
+                            return (                                    
+                              <TableRow key={index}>
+                                <TableCell className="text-center">{downtime.startTime.slice(0,5)}</TableCell>
+                                <TableCell className="text-center">{downtime.stopTime.slice(0,5)}</TableCell>
+                                <TableCell className="text-center">{duration}</TableCell>
+                                <TableCell className="text-center">{downtime.isChangeover ? null : downtime.pn}</TableCell>
+                                <TableCell className="text-center">{downtime.isChangeover && downtime.previousPn ? `${downtime.previousPn} -> ${downtime.pn}` : null}</TableCell>
+                                <TableCell className="text-center">
+                                  <Button size="sm" onClick={() => handleAcceptDowntime(downtime)}>Accept</Button>
+                                </TableCell>
+                              </TableRow>)
+                          })}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              )}
+              <Card className="border shadow-sm flex flex-col min-h-0 flex-1">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Events</CardTitle>
+                  <Button onClick={handleAddEvent} size="sm" disabled={reportLoading}><Plus className="w-4 h-4 mr-2"/>Add</Button>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col min-h-0">
+                  <ScrollArea className="border border-b-0 rounded-md rounded-b-none flex-1 min-h-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/40">
+                            <TableHead className="w-10"></TableHead>
+                            <TableHead className="px-2 text-center border-l border-dashed">Start</TableHead>
+                            <TableHead className="px-2 text-center border-l border-dashed">Stop</TableHead>
+                            <TableHead className="px-2 text-center border-l border-dashed">Duration</TableHead>
+                            <TableHead className="px-2 text-center border-l border-dashed">PN</TableHead>
+                            <TableHead className="px-2 text-center border-l border-dashed">FERT</TableHead>
+                            <TableHead className="px-2 text-center border-l border-dashed">Category</TableHead>
+                            <TableHead className="px-2 text-center border-l border-dashed">Type</TableHead>
+                            <TableHead className="px-2 text-center border-l border-dashed">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {events.map((event, idx) => {
+                            const hasMachine = !!event.machineNr;
+                            const hasSubcategory = !!event.subcategory;
+                            const hasDescription = !!event.description?.trim();
+                            const duration = calculateDuration(event.startTime, event.stopTime);
 
-                          return (
-                            <>
-                              <TableRow
-                                key={`event-${idx}-main`}
-                                className={"cursor-pointer hover:bg-muted/50"}
-                                onClick={hasDescription || hasSubcategory ? () => toggleEventRowExpanded(idx) : undefined}
-                                aria-disabled={!hasDescription && !hasSubcategory}
-                                title={hasDescription || hasSubcategory ? "Show details" : "No details available"}
-                              >
-                                <TableCell className="w-10 bg-background text-center">
-                                  {hasDescription || hasSubcategory ? (
-                                    expandedEventRows.has(idx) ? (
-                                      <ChevronUp className="w-4 h-4 inline" />
-                                    ) : (
-                                      <ChevronDown className="w-4 h-4 inline" />
-                                    )
-                                  ) : null}
-                                </TableCell>
-                                <TableCell className="text-center border-l border-dashed">{event.startTime.slice(0,5)}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{event.stopTime.slice(0,5)}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{duration}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{event.pn}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{event.fert}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{getCategoryDesc(event.category) ?? "—"}</TableCell>
-                                <TableCell className="text-center border-l border-dashed">{event.isAvailabilityLoss ? "Av" : "Pf"}</TableCell>
-                                <TableCell  className="text-center border-l border-dashed">
-                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }} disabled={reportLoading}>
-                                    <Pen className="w-4 h-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event); }} disabled={reportLoading}>
-                                    <Trash className="w-4 h-4" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                              {(hasMachine || hasDescription || hasSubcategory) && expandedEventRows.has(idx) && (
-                                <TableRow key={`event-${idx}-details`} className="bg-muted/20 hover:bg-muted/30">
-                                  <TableCell colSpan={9} className="px-6 py-4 bg-muted/20">
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-4">
-                                      <div>
-                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                                          Machine
-                                        </p>
-                                        <p className="text-sm text-foreground">{getMachineDesc(event.machineNr) ?? "—"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                                          Subcategory
-                                        </p>
-                                        <p className="text-sm text-foreground">{getSubcategoryDesc(event.subcategory) ?? "—"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                                          Description
-                                        </p>
-                                        <p className="text-sm text-foreground whitespace-pre-wrap">{event.description?.trim() || "—"}</p>
-                                      </div>
-                                    </div>
+                            return (
+                              <>
+                                <TableRow
+                                  key={`event-${idx}-main`}
+                                  className={"cursor-pointer hover:bg-muted/50"}
+                                  onClick={hasDescription || hasSubcategory ? () => toggleEventRowExpanded(idx) : undefined}
+                                  aria-disabled={!hasDescription && !hasSubcategory}
+                                  title={hasDescription || hasSubcategory ? "Show details" : "No details available"}
+                                >
+                                  <TableCell className="w-10 bg-background text-center">
+                                    {hasDescription || hasSubcategory ? (
+                                      expandedEventRows.has(idx) ? (
+                                        <ChevronUp className="w-4 h-4 inline" />
+                                      ) : (
+                                        <ChevronDown className="w-4 h-4 inline" />
+                                      )
+                                    ) : null}
+                                  </TableCell>
+                                  <TableCell className="text-center border-l border-dashed">{event.startTime.slice(0,5)}</TableCell>
+                                  <TableCell className="text-center border-l border-dashed">{event.stopTime.slice(0,5)}</TableCell>
+                                  <TableCell className="text-center border-l border-dashed">{duration}</TableCell>
+                                  <TableCell className="text-center border-l border-dashed">{event.pn}</TableCell>
+                                  <TableCell className="text-center border-l border-dashed">{event.fert}</TableCell>
+                                  <TableCell className="text-center border-l border-dashed">{getCategoryDesc(event.category) ?? "—"}</TableCell>
+                                  <TableCell className="text-center border-l border-dashed">{event.isAvailabilityLoss ? "Av" : "Pf"}</TableCell>
+                                  <TableCell  className="text-center border-l border-dashed">
+                                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }} disabled={reportLoading}>
+                                      <Pen className="w-4 h-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event); }} disabled={reportLoading}>
+                                      <Trash className="w-4 h-4" />
+                                    </Button>
                                   </TableCell>
                                 </TableRow>
-                              )}
-                            </>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                  <div className="border border-t-0 rounded-md rounded-t-none">
-                    <Table>
-                      <TableFooter>
-                        <TableRow>
-                            <TableCell colSpan={2} rowSpan={2} className="font-bold text-lg text-center align-middle">Summary:</TableCell>
-                            <TableCell colSpan={2} className="text-center text-xs font-medium text-muted-foreground">Total Duration</TableCell>
-                            <TableCell className="text-center text-xs font-medium text-muted-foreground">Changeovers Number</TableCell>
-                            <TableCell className="text-center text-xs font-medium text-muted-foreground">Availability Loss Number</TableCell>
-                            <TableCell className="text-center text-xs font-medium text-muted-foreground">Performance Loss Number</TableCell>
-                            <TableCell/>
-                        </TableRow>
-                        <TableRow>
-                            <TableCell colSpan={2} className="font-bold text-center">{totalEventsDuration}</TableCell>
-                            <TableCell className="font-bold text-center">{changeoversNumber}</TableCell>
-                            <TableCell className="font-bold text-center">{availabilityLossNumber}</TableCell>
-                            <TableCell className="font-bold text-center">{performanceLossNumber}</TableCell>
-                            <TableCell/>
-                        </TableRow>
-                      </TableFooter>
-                    </Table>
-                  </div>
-              </CardContent>
-            </Card>
+                                {(hasMachine || hasDescription || hasSubcategory) && expandedEventRows.has(idx) && (
+                                  <TableRow key={`event-${idx}-details`} className="bg-muted/20 hover:bg-muted/30">
+                                    <TableCell colSpan={9} className="px-6 py-4 bg-muted/20">
+                                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-4">
+                                        <div>
+                                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                                            Machine
+                                          </p>
+                                          <p className="text-sm text-foreground">{getMachineDesc(event.machineNr) ?? "—"}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                                            Subcategory
+                                          </p>
+                                          <p className="text-sm text-foreground">{getSubcategoryDesc(event.subcategory) ?? "—"}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                                            Description
+                                          </p>
+                                          <p className="text-sm text-foreground whitespace-pre-wrap">{event.description?.trim() || "—"}</p>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                    <div className="border border-t-0 rounded-md rounded-t-none">
+                      <Table>
+                        <TableFooter>
+                          <TableRow>
+                              <TableCell colSpan={2} rowSpan={2} className="font-bold text-lg text-center align-middle">Summary:</TableCell>
+                              <TableCell colSpan={2} className="text-center text-xs font-medium text-muted-foreground">Total Duration</TableCell>
+                              <TableCell className="text-center text-xs font-medium text-muted-foreground">Changeovers Number</TableCell>
+                              <TableCell className="text-center text-xs font-medium text-muted-foreground">Availability Loss Number</TableCell>
+                              <TableCell className="text-center text-xs font-medium text-muted-foreground">Performance Loss Number</TableCell>
+                              <TableCell/>
+                          </TableRow>
+                          <TableRow>
+                              <TableCell colSpan={2} className="font-bold text-center">{totalEventsDuration}</TableCell>
+                              <TableCell className="font-bold text-center">{changeoversNumber}</TableCell>
+                              <TableCell className="font-bold text-center">{availabilityLossNumber}</TableCell>
+                              <TableCell className="font-bold text-center">{performanceLossNumber}</TableCell>
+                              <TableCell/>
+                          </TableRow>
+                        </TableFooter>
+                      </Table>
+                    </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
@@ -629,14 +695,14 @@ export default function CurrentReport({ params }: CurrentReportProps) {
       <Dialog open={isEventFormOpen} onOpenChange={handleEventFormClose}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{selectedEvent ? "Edit Event" : "Add Event"}</DialogTitle>
+            <DialogTitle>{selectedEvent?.id ? "Edit Event" : "Add Event"}</DialogTitle>
           </DialogHeader>
             {report && (
               <ProductionEventForm
                 reportId={reportId!}
                 userName={report.userName}
                 reportArea={report.area}
-                initialData={selectedEvent}
+                initialData={selectedEvent as GetProductionEvent}
                 categoryDescriptions={categoryDescriptions}
                 machineDescriptions={machineDescriptions}
                 onSuccess={() => {
