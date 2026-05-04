@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { useCurrentReport } from "@/lib/current-report-context";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +17,7 @@ import {
   TableFooter
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertCircle, ChevronDown, ChevronUp, Pen, Plus, Trash } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Pen, Plus, Trash, Grip } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ProductionCounterForm from "@/components/production-counter-form";
 import ProductionEventForm from "@/components/production-event-form";
@@ -139,6 +139,17 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     enabled: !!reportId,
     retry: false,
     });
+
+    const existingPnsByHourDict = useMemo(() => {
+        const pnsByHour: Record<number, string[]> = {};
+        counterRowProductionTimes.forEach(row => {
+            if (!pnsByHour[row.hour]) {
+                pnsByHour[row.hour] = [];
+            }
+            pnsByHour[row.hour].push(row.pn);
+        });
+        return pnsByHour;
+    }, [counterRowProductionTimes]);
 
   useEffect(() => {
     if (downtimes.length > 0 && events) {
@@ -354,7 +365,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                             const hourProdTime = rows.reduce((acc, r) => acc + r.productionTime, 0);
                             const formatList = (vals: (string | number)[]) => { 
                               const unique = Array.from(new Set(vals.map((v) => String(v))));
-                              const shown = unique.length > 1 ? unique.slice(0, 3).map(x => "..." + x.substring(5)).join(", ") : unique[0];
+                              const shown = unique.length > 1 ? unique.slice(0, 3).map(x => x.substring(5)).join(", ") : unique[0];
                               return unique.length > 3 ? `${shown}, ...` : shown;
                             };
                             const hourPns = formatList(rows.map((r) => r.pn));
@@ -426,10 +437,12 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                         onClick={() => togglePnRowExpanded(counterRow.id)}
                                         data-testid={`row-pn-${counterRow.id}`}
                                       >
-                                        <TableCell className="w-10 bg-background text-center pl-6">
+                                        <TableCell className="bg-background text-center" title="Drag to reorder">
+                                          <Grip className="w-4 h-4 inline text-muted-foreground"/>
+                                        </TableCell>
+                                        <TableCell className="border-l border-dashed text-center cursor-pointer" title={pnExpanded ? "Hide NOK categories" : "Show NOK categories"}>
                                           {pnExpanded ? <ChevronUp className="w-4 h-4 inline" /> : <ChevronDown className="w-4 h-4 inline" />}
                                         </TableCell>
-                                        <TableCell className="border-l border-dashed" />
                                         <TableCell className="text-center border-l border-dashed">{counterRow.pn}</TableCell>
                                         <TableCell className="text-center border-l border-dashed">{counterRow.fert}</TableCell>
                                         <TableCell className="text-center border-l border-dashed">{counterRow.codings.filter(c => c.name == 'OK').reduce((acc, coding) => acc + coding.summary, 0)}</TableCell>
@@ -438,10 +451,10 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                         <TableCell className="text-center border-l border-dashed">{counterRow.operatorsIndirect}</TableCell>
                                         <TableCell className="text-center border-l border-dashed">{counterRow.productionTime}</TableCell>
                                         <TableCell className="text-center border-l border-dashed">
-                                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditCounter(counterRow); }} data-testid={`button-edit-counter-${counterRow.id}`}>
+                                          <Button variant="ghost" size="icon" title="Edit" onClick={(e) => { e.stopPropagation(); handleEditCounter(counterRow); }} data-testid={`button-edit-counter-${counterRow.id}`}>
                                             <Pen className="w-4 h-4" />
                                           </Button>
-                                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteCounter(counterRow); }} disabled={reportLoading} data-testid={`button-delete-counter-${counterRow.id}`}>
+                                          <Button variant="ghost" size="icon" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteCounter(counterRow); }} disabled={reportLoading} data-testid={`button-delete-counter-${counterRow.id}`}>
                                             <Trash className="w-4 h-4" />
                                           </Button>
                                         </TableCell>
@@ -687,6 +700,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
               initialData={selectedCounterRow}
               reportArea={report.area}
               onSuccess={() => { handleCounterFormClose(); queryClient.invalidateQueries({ queryKey: [`/api/reports/${reportId}/ProductionTimes`] }); }}
+              existingPnsByHourDict={existingPnsByHourDict || []}
             />
           )}
         </DialogContent>

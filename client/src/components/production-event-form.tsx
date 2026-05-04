@@ -45,9 +45,7 @@ const timeToMinutes = (time: string) => {
 const minutesToTime = (minutes: number) => {
   const h = Math.floor(minutes / 60) % 24;
   const m = minutes % 60;
-  return `${h.toString().padStart(2, "0")}:${m
-    .toString()
-    .padStart(2, "0")}`;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 };
 
 interface ProductionEventFormProps {

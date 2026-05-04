@@ -129,6 +129,12 @@ export const codingSchema = z.object({
   summary: z.number()
 });
 
+export const traceDataSchema = z.object({
+  pn: z.string(),
+  productionTime: z.number(),
+  codings: z.array(codingSchema)
+});
+
 export const getCounterRowProductionTimeSchema = z.object({
   id: z.number(),
   idReport: z.string(),
@@ -171,6 +177,8 @@ export const getProductionEventSchema = z.object({
   isAvailabilityLoss: z.boolean(),
   machineNr: z.number(),
   description: z.string(),
+  isChangeover: z.boolean(),
+  previousPn: z.string().nullable()
 });
 
 export const createUpdateProductionEventSchema = z.object({
@@ -185,6 +193,8 @@ export const createUpdateProductionEventSchema = z.object({
   isAvailabilityLoss: z.boolean(),
   machineNr: z.coerce.number(),
   description: z.string(),
+  isChangeover: z.boolean(),
+  previousPn: z.string().nullable()
 });
 
 export const getCategoryDescriptionSchema = z.object({
@@ -228,6 +238,7 @@ export type GetCategoryDescription = z.infer<typeof getCategoryDescriptionSchema
 export type GetSubcategoryDescription = z.infer<typeof getSubcategoryDescriptionSchema>;
 export type GetMachineDescription = z.infer<typeof getMachineDescriptionSchema>;
 export type Coding = z.infer<typeof codingSchema>;
+export type TraceData = z.infer<typeof traceDataSchema>;
 export type Downtime = z.infer<typeof downtimeSchema>;
 
 export const users = {} as any;

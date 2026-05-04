@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import { GetNokCategory, GetCounterRowProductionTime, CreateUpdateProductionTimeAndCounterRows, createUpdateProductionTimeAndCounterRowsSchema, Coding } from "@shared/schema";
+import { GetNokCategory, GetCounterRowProductionTime, CreateUpdateProductionTimeAndCounterRows, createUpdateProductionTimeAndCounterRowsSchema, TraceData } from "@shared/schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "./ui/scroll-area";
@@ -25,6 +25,7 @@ interface ProductionCounterFormProps {
   reportArea: string;
   initialData?: GetCounterRowProductionTime;
   onSuccess: () => void;
+  existingPnsByHourDict?: Record<number, string[]>;
 }
 
 const codingNamesArray = ["OK", "NOK_A", "NOK_B", "NOK_C", "NOK_D", "NOK_E", "NOK_F", "NOK_G", "NOK_H", "NOK_I", "NOK_J", "NOK_K", "NOK_L", "NOK_M", "NOK_N", "NOK_O", "NOK_P", "NOK_Q", "NOK_R", "NOK_S", "NOK_T", "NOK_X", "NOK_Y", "NOK_Z",
@@ -36,7 +37,7 @@ const codingsDefaultValues = codingNamesArray.map(name => ({
     summary: 0,
 }));
 
-export default function ProductionCounterForm({ reportId, reportArea, initialData, onSuccess }: ProductionCounterFormProps) {
+export default function ProductionCounterForm({ reportId, reportArea, initialData, onSuccess, existingPnsByHourDict = [] }: ProductionCounterFormProps) {
   const { toast } = useToast();
 
   const form = useForm<CreateUpdateProductionTimeAndCounterRows>({
@@ -56,43 +57,63 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
   const pn = form.watch("pn");
   const { setValue } = form;
 
-  const { data: fetchedCodingsDict, isLoading, isError } = useQuery<Record<string, Coding[]>>({ 
+  const { data: fetchedTraceDataArray, isLoading, isError } = useQuery<TraceData[]>({
     queryKey: ['codings', reportId, hour],
-    queryFn: () => api.getCodingsDict(reportId, hour),
+    queryFn: () => api.getTraceDataArray(reportId, hour),
     enabled: !!reportId && !!hour && !initialData,
-  })
+    refetchOnWindowFocus: false,
+  });
+
+  const automaticPns = React.useMemo(() => {
+    if (!fetchedTraceDataArray) {
+      return [];
+    }
+    const pns = fetchedTraceDataArray.map(td => td.pn);
+    if (initialData) {
+        return pns;
+    }
+    return existingPnsByHourDict[hour] ? pns.filter(p => !existingPnsByHourDict[hour].includes(p)) : pns;
+  }, [fetchedTraceDataArray, existingPnsByHourDict, initialData]);
+
+  React.useEffect(() => {
+    if (automaticPns && automaticPns.length > 0) {
+        setValue('pn', automaticPns[0]);
+    }
+  }, [automaticPns, setValue]);
 
   React.useEffect(() => {
     if (isError) {
-      toast({ title: "Failed to fetch codings", description: "Could not load coding data. Values have been reset.", variant: "destructive" });
+      toast({ title: "Failed to fetch traceability data", description: "Could not load traceability data. Values have been reset.", variant: "destructive" });
       if (pn) {
         const updatedCodings = codingsDefaultValues.map(defaultCoding => ({
           ...defaultCoding,
           summary: 0,
           errorCodes: [],
         }));
+        setValue('productionTime', 0);
         setValue('codings', updatedCodings);
       }
     }
   }, [isError, pn, setValue, toast]);
 
     React.useEffect(() => {
-        if (fetchedCodingsDict) {
-        const updatedCodings = codingsDefaultValues.map(defaultCoding => {
-            const fetched = fetchedCodingsDict[pn].find(c => c.name === defaultCoding.name);
-            return {
-                ...defaultCoding,
-                pn: pn,
-                summary: fetched?.summary ?? 0,
-                errorCodes: fetched?.errorCodes ?? [],
-            };
-        });
-        setValue('codings', updatedCodings);
+    if (fetchedTraceDataArray && pn && fetchedTraceDataArray.find(td => td.pn === pn)) {
+      const fetchedTraceData = fetchedTraceDataArray.find(td => td.pn === pn);
+      const updatedCodings = codingsDefaultValues.map(defaultCoding => {
+        const fetchedCodings = fetchedTraceData!.codings.find(c => c.name === defaultCoding.name);
+        return {
+          ...defaultCoding,
+          summary: fetchedCodings?.summary ?? 0,
+          errorCodes: fetchedCodings?.errorCodes ?? [],
+        };
+      });
+      setValue('productionTime', fetchedTraceData!.productionTime);
+      setValue('codings', updatedCodings);
     }
-  }, [fetchedCodingsDict, setValue]);
+  }, [fetchedTraceDataArray, pn, setValue]);
 
   const codings = form.watch("codings");
-  const okCodingIndex = codings.findIndex(c => c.name === "OK");
+  const okCodingIndex = codings?.findIndex(c => c.name === "OK") ?? -1;
 
   const { data: nokCategories = [] } = useQuery<GetNokCategory[]>({ 
     queryKey: [`/api/nok-categories/${reportArea}`],
@@ -100,7 +121,7 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
     enabled: !!reportArea,
   });
 
-  const { data: pns = [], isLoading: isLoadingPns } = useQuery<string[]>({  
+  const { data: allPnsForArea = [], isLoading: isLoadingPnsForArea } = useQuery<string[]>({  
     queryKey: [`/api/ProductionReports/PNs?area=${reportArea}`],
     queryFn: () => api.getPNs(reportArea),
     enabled: !!reportArea,
@@ -223,16 +244,16 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           render={({ field }) => (
             <FormItem>
               <FormLabel>PN</FormLabel>
-                  <Select required onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns || !!initialData}>
+                  <Select required onValueChange={field.onChange} value={field.value} disabled={isLoading || !!initialData}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select a PN"} />
+                    <SelectValue placeholder={isLoading ? "Loading..." : "Select a PN"} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {pns.map((pn, index) => (
-                    <SelectItem key={index} value={pn}>
-                      {pn}
+                  {automaticPns.map((autoPn, index) => (
+                    <SelectItem key={index} value={autoPn}>
+                      {autoPn}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -247,14 +268,14 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
           render={({ field }) => (
             <FormItem>
               <FormLabel>FERT</FormLabel>
-                  <Select required onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
+                  <Select required onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPnsForArea}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select FERT"} />
+                    <SelectValue placeholder={isLoadingPnsForArea ? "Loading..." : "Select FERT"} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {pns.map((pn, index) => (
+                  {allPnsForArea.map((pn, index) => (
                     <SelectItem key={index} value={pn}>
                       {pn}
                     </SelectItem>
@@ -288,29 +309,43 @@ export default function ProductionCounterForm({ reportId, reportArea, initialDat
                 />
             )
         )}
-        <FormItem>
-          <FormLabel>NOK Count</FormLabel>
-          <FormControl>
-            <Input
-              type="number"
-              value={codings?.filter(c => c.name !== "OK").reduce((sum, c) => sum + (c.summary ?? 0), 0) ?? 0}
-              readOnly
-              tabIndex={-1}
-              className="text-center h-10 bg-muted cursor-not-allowed"
-            />
-          </FormControl>
-        </FormItem>
-        <FormField
-          control={form.control}
-          name="productionTime"
-          render={({ field }) => (
+        {isLoading && !initialData ? (
             <FormItem>
-              <FormLabel>Production Time</FormLabel>
-              {renderNumericInput(field, true, 0, 60)}
-              <FormMessage />
+                <FormLabel>NOK Count</FormLabel>
+                <Skeleton className="h-10 w-full" />
             </FormItem>
-          )}
-        />
+        ) : (
+            <FormItem>
+              <FormLabel>NOK Count</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  value={codings?.filter(c => c.name !== "OK").reduce((sum, c) => sum + (c.summary ?? 0), 0) ?? 0}
+                  readOnly
+                  tabIndex={-1}
+                  className="text-center h-10 bg-muted cursor-not-allowed"
+                />
+              </FormControl>
+            </FormItem>
+        )}
+        {isLoading && !initialData ? (
+          <FormItem>
+              <FormLabel>Production Time</FormLabel>
+              <Skeleton className="h-10" />
+          </FormItem>
+        ) : (
+          <FormField
+            control={form.control}
+            name="productionTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Production Time</FormLabel>
+                {renderNumericInput(field, true, 0, 60)}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         <FormField
           control={form.control}
           name="operators"
