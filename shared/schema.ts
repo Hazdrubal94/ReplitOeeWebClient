@@ -162,7 +162,6 @@ export const downtimeSchema = z.object({
   pn: z.string(),
   startTime: z.string(),
   stopTime: z.string(),
-  isChangeover: z.boolean(),
   previousPn: z.string().nullable()
 });
 
@@ -177,8 +176,7 @@ export const getProductionEventSchema = z.object({
   isAvailabilityLoss: z.boolean(),
   machineNr: z.number(),
   description: z.string(),
-  isChangeover: z.boolean(),
-  previousPn: z.string().nullable()
+  previousPn: z.string().nullable().optional()
 });
 
 export const createUpdateProductionEventSchema = z.object({
@@ -193,8 +191,7 @@ export const createUpdateProductionEventSchema = z.object({
   isAvailabilityLoss: z.boolean(),
   machineNr: z.coerce.number(),
   description: z.string(),
-  isChangeover: z.boolean(),
-  previousPn: z.string().nullable()
+  previousPn: z.string().nullable(),
 });
 
 export const getCategoryDescriptionSchema = z.object({

@@ -72,6 +72,7 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
       isAvailabilityLoss: initialData?.isAvailabilityLoss ?? false,
       machineNr: initialData?.machineNr ?? undefined,
       description: initialData?.description ?? "",
+      previousPn: initialData?.previousPn,
       userName: userName,
     },
   });
@@ -79,6 +80,31 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
   const startTime = form.watch("startTime");
   const stopTime = form.watch("stopTime");
   const categoryId = form.watch("category");
+
+  const { data: changeoverId } = useQuery({
+    queryKey: ["changeoverId"],
+    queryFn: api.getChangeoverId,
+  });
+
+  useEffect(() => {
+    if (initialData?.previousPn && changeoverId) {
+      form.setValue("category", changeoverId);
+    }
+  }, [initialData, changeoverId, form]);
+
+  const isChangeoverSelected = categoryId === changeoverId;
+  
+  useEffect(() => {
+    if (!isChangeoverSelected) {
+      form.setValue("previousPn", null);
+    }
+  }, [isChangeoverSelected, form]);
+
+  useEffect(() => {
+    if (!isChangeoverSelected) {
+      form.setValue("previousPn", initialData?.previousPn ?? null);
+    }
+  }, [isChangeoverSelected, form]);
 
   const [duration, setDuration] = useState<number>(() => {
     if (!initialData?.startTime || !initialData?.stopTime) return 0;
@@ -217,11 +243,122 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
         <div className="grid grid-cols-3 gap-4">
           <FormField
             control={form.control}
+            name="machineNr"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Machine</FormLabel>
+                <Select required onValueChange={(value) => field.onChange(parseInt(value, 10))} value={!!field.value ? String(field.value) : undefined}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a machine" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {machineDescriptions.map((machine) => (
+                      <SelectItem key={machine.id} value={String(machine.id)}>
+                        {machine.machine} - {machine.description}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Category</FormLabel>
+                <Select
+                  required
+                  onValueChange={(value) => {
+                    field.onChange(parseInt(value, 10));
+                    form.setValue("subcategory", null);
+                  }}
+                  value={!!field.value ? String(field.value) : undefined}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {categoryDescriptions.map((category) => (
+                      <SelectItem key={category.id} value={String(category.id)}>
+                        {category.description}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="subcategory"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Subcategory</FormLabel>
+                <Select 
+                  onValueChange={(value) => field.onChange(value === 'null' ? null : parseInt(value, 10))}
+                  value={String(field.value ?? 'null')}
+                  disabled={!categoryId || categoryId === 0 || isLoadingSubcategories}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a subcategory" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="null">None</SelectItem>
+                    {subcategories?.map((subcategory) => (
+                      <SelectItem key={subcategory.id} value={String(subcategory.id)}>
+                        {subcategory.descriptionEn}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>        
+        <div className={`grid ${isChangeoverSelected ? "grid-cols-3" : "grid-cols-2"} gap-4`}>
+          {isChangeoverSelected && (
+            <FormField
+              control={form.control}
+              name="previousPn"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Previous PN</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value ?? undefined} disabled={isLoadingPns}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select a PN"} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {pns.map((pn, index) => (
+                        <SelectItem key={index} value={pn}>
+                          {pn}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+          <FormField
+            control={form.control}
             name="pn"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>PN</FormLabel>
-                <Select required onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
+                <Select required onValueChange={field.onChange} value={field.value} disabled={isLoadingPns}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select a PN"} />
@@ -245,7 +382,7 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
             render={({ field }) => (
               <FormItem>
                 <FormLabel>FERT</FormLabel>
-                <Select required onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingPns}>
+                <Select required onValueChange={field.onChange} value={field.value} disabled={isLoadingPns}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder={isLoadingPns ? "Loading..." : "Select a FERT"} />
@@ -263,114 +400,27 @@ export default function ProductionEventForm({ reportId, userName, reportArea, in
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="machineNr"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Machine</FormLabel>
-                <Select required onValueChange={(value) => field.onChange(parseInt(value, 10))} defaultValue={!!field.value ? String(field.value) : undefined}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a machine" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {machineDescriptions.map((machine) => (
-                      <SelectItem key={machine.id} value={String(machine.id)}>
-                        {machine.machine} - {machine.description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
         </div>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  <Select
-                    required
-                    onValueChange={(value) => {
-                      field.onChange(parseInt(value, 10));
-                      form.setValue("subcategory", null);
-                    }}
-                    defaultValue={!!field.value ? String(field.value) : undefined}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categoryDescriptions.map((category) => (
-                        <SelectItem key={category.id} value={String(category.id)}>
-                          {category.description}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="subcategory"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Subcategory</FormLabel>
-                  <Select 
-                    onValueChange={(value) => field.onChange(value === 'null' ? null : parseInt(value, 10))}
-                    value={String(field.value ?? 'null')}
-                    disabled={!categoryId || categoryId === 0 || isLoadingSubcategories}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a subcategory" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="null">None</SelectItem>
-                      {subcategories?.map((subcategory) => (
-                        <SelectItem key={subcategory.id} value={String(subcategory.id)}>
-                          {subcategory.descriptionEn}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Description</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Add a short description of the event..."
-                    className="resize-none"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Add a short description of the event..."
+                  className="resize-none"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="flex justify-between items-center">
           <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-              {initialData?.id ? 'Update Event' : 'Create Event'}
+            {initialData?.id ? 'Update Event' : 'Create Event'}
           </Button>
           <FormField
             control={form.control}

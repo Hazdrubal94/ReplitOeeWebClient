@@ -153,6 +153,9 @@ export const api = {
   getCategoryDescriptions: (): Promise<GetCategoryDescription[]> =>
     fetch(`${BASE_URL}/api/ProductionReports/Categories`).then(r => handleResponse<GetCategoryDescription[]>(r)),
 
+  getChangeoverId: (): Promise<number> =>
+    fetch(`${BASE_URL}/api/ProductionReports/Categories/ChangeoverId`).then(r => handleResponse<number>(r)),
+
   getSubcategoriesForCategoryId: (id: number): Promise<GetSubcategoryDescription[] | null> =>
     fetch(`${BASE_URL}/api/ProductionReports/Categories/${id}/Subcategories`).then(r => handleResponse<GetSubcategoryDescription[] | null>(r)),
 

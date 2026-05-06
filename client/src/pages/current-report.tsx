@@ -138,18 +138,23 @@ export default function CurrentReport({ params }: CurrentReportProps) {
     queryFn: () => api.getDowntimes(reportId!),
     enabled: !!reportId,
     retry: false,
-    });
+  });
 
-    const existingPnsByHourDict = useMemo(() => {
-        const pnsByHour: Record<number, string[]> = {};
-        counterRowProductionTimes.forEach(row => {
-            if (!pnsByHour[row.hour]) {
-                pnsByHour[row.hour] = [];
-            }
-            pnsByHour[row.hour].push(row.pn);
-        });
-        return pnsByHour;
-    }, [counterRowProductionTimes]);
+  const { data: changeoverId } = useQuery({
+    queryKey: ["changeoverId"],
+    queryFn: api.getChangeoverId,
+  });
+
+  const existingPnsByHourDict = useMemo(() => {
+    const pnsByHour: Record<number, string[]> = {};
+    counterRowProductionTimes.forEach(row => {
+      if (!pnsByHour[row.hour]) {
+          pnsByHour[row.hour] = [];
+      }
+      pnsByHour[row.hour].push(row.pn);
+    });
+    return pnsByHour;
+  }, [counterRowProductionTimes]);
 
   useEffect(() => {
     if (downtimes.length > 0 && events) {
@@ -277,6 +282,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
       pn: downtime.pn,
       startTime: downtime.startTime.slice(0, 5),
       stopTime: downtime.stopTime.slice(0, 5),
+      previousPn: downtime.previousPn
     };
     setSelectedEvent(eventFromDowntime);
     setIsEventFormOpen(true);
@@ -295,7 +301,7 @@ export default function CurrentReport({ params }: CurrentReportProps) {
   const sumProductionTime = counterRowProductionTimes.reduce((acc, counter) => acc + counter.productionTime, 0);
 
   const totalEventsDuration = events.reduce((acc, event) => acc + calculateDuration(event.startTime, event.stopTime), 0);
-  const changeoversNumber = events.filter(event => event.category === 16).length;
+  const changeoversNumber = events.filter(event => event.category === changeoverId).length;
   const availabilityLossNumber = events.filter(event => event.isAvailabilityLoss === true).length;
   const performanceLossNumber = events.filter(event => event.isAvailabilityLoss === false).length;
 
@@ -555,8 +561,8 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                 <TableCell className="text-center">{downtime.startTime.slice(0,5)}</TableCell>
                                 <TableCell className="text-center">{downtime.stopTime.slice(0,5)}</TableCell>
                                 <TableCell className="text-center">{duration}</TableCell>
-                                <TableCell className="text-center">{downtime.isChangeover ? null : downtime.pn}</TableCell>
-                                <TableCell className="text-center">{downtime.isChangeover && downtime.previousPn ? `${downtime.previousPn} -> ${downtime.pn}` : null}</TableCell>
+                                <TableCell className="text-center">{downtime.previousPn ? null : downtime.pn}</TableCell>
+                                <TableCell className="text-center">{downtime.previousPn ? `${downtime.previousPn} -> ${downtime.pn}` : null}</TableCell>
                                 <TableCell className="text-center">
                                   <Button size="sm" onClick={() => handleAcceptDowntime(downtime)}>Accept</Button>
                                 </TableCell>
@@ -601,12 +607,12 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                 <TableRow
                                   key={`event-${idx}-main`}
                                   className={"cursor-pointer hover:bg-muted/50"}
-                                  onClick={hasDescription || hasSubcategory ? () => toggleEventRowExpanded(idx) : undefined}
-                                  aria-disabled={!hasDescription && !hasSubcategory}
-                                  title={hasDescription || hasSubcategory ? "Show details" : "No details available"}
+                                  onClick={hasMachine || hasDescription || hasSubcategory ? () => toggleEventRowExpanded(idx) : undefined}
+                                  aria-disabled={!hasMachine && !hasDescription && !hasSubcategory}
+                                  title={hasMachine || hasDescription || hasSubcategory ? "Show details" : "No details available"}
                                 >
                                   <TableCell className="w-10 bg-background text-center">
-                                    {hasDescription || hasSubcategory ? (
+                                    {hasMachine || hasDescription || hasSubcategory ? (
                                       expandedEventRows.has(idx) ? (
                                         <ChevronUp className="w-4 h-4 inline" />
                                       ) : (
@@ -622,15 +628,15 @@ export default function CurrentReport({ params }: CurrentReportProps) {
                                   <TableCell className="text-center border-l border-dashed">{getCategoryDesc(event.category) ?? "—"}</TableCell>
                                   <TableCell className="text-center border-l border-dashed">{event.isAvailabilityLoss ? "Av" : "Pf"}</TableCell>
                                   <TableCell  className="text-center border-l border-dashed">
-                                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }} disabled={reportLoading}>
+                                    <Button variant="ghost" size="icon" title="Edit" onClick={(e) => { e.stopPropagation(); handleEditEvent(event); }} disabled={reportLoading}>
                                       <Pen className="w-4 h-4" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event); }} disabled={reportLoading}>
+                                    <Button variant="ghost" size="icon" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event); }} disabled={reportLoading}>
                                       <Trash className="w-4 h-4" />
                                     </Button>
                                   </TableCell>
                                 </TableRow>
-                                {(hasMachine || hasDescription || hasSubcategory) && expandedEventRows.has(idx) && (
+                                {(hasMachine || hasSubcategory || hasDescription) && expandedEventRows.has(idx) && (
                                   <TableRow key={`event-${idx}-details`} className="bg-muted/20 hover:bg-muted/30">
                                     <TableCell colSpan={9} className="px-6 py-4 bg-muted/20">
                                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-4">
